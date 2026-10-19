@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0b2a20">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="5 Rois">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>5 Rois</title>
+<style>
+:root{
+  --felt1:#14503b; --felt2:#0b2a20; --gold:#e7c15a; --gold2:#b8902f; --cream:#fbf6e9; --ink:#1b1b1b;
+  --muted:#a9c4b8; --danger:#e5694f; --cw:46px; --ch:66px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+html,body{margin:0;height:100%;background:var(--felt2);color:var(--cream);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+body{background:radial-gradient(120% 80% at 50% 0%,var(--felt1),var(--felt2) 70%) fixed;}
+button{font:inherit;color:inherit}
+.serif{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
+#app{height:100dvh;display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+[hidden]{display:none!important}
+
+/* ---------- Accueil ---------- */
+#home{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;gap:18px;text-align:center}
+.crown{font-size:76px;line-height:1;color:var(--gold);text-shadow:0 4px 18px rgba(231,193,90,.35)}
+#home h1{margin:0;font-size:44px;letter-spacing:.02em;color:var(--cream)}
+#home p.sub{margin:0;color:var(--muted);max-width:30ch;line-height:1.4}
+.panel{background:rgba(0,0,0,.22);border:1px solid rgba(231,193,90,.25);border-radius:16px;padding:14px 16px;width:100%;max-width:340px}
+.panel h3{margin:0 0 10px;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.seg{display:flex;gap:8px}
+.seg button{flex:1;padding:11px 0;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:transparent;font-weight:600}
+.seg button.on{background:var(--gold);color:#2b2100;border-color:var(--gold)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.switch{width:50px;height:30px;border-radius:15px;background:rgba(255,255,255,.2);border:0;position:relative;flex:none}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.18s}
+.switch.on{background:var(--gold)}
+.switch.on::after{left:23px}
+.btn{border:0;border-radius:14px;padding:15px 22px;font-weight:700;font-size:17px;width:100%;max-width:340px}
+.btn.gold{background:linear-gradient(180deg,#f1d27a,var(--gold2));color:#2b2100;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.btn.ghost{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.45}
+.linkbtn{background:none;border:0;color:var(--muted);text-decoration:underline;font-size:15px;padding:6px}
+
+/* ---------- Jeu ---------- */
+#game{flex:1;display:flex;flex-direction:column;min-height:0}
+.topbar{display:flex;align-items:center;gap:8px;padding:8px 12px}
+.topbar .round{flex:1;line-height:1.15}
+.topbar .round b{font-size:17px}
+.topbar .round small{display:block;color:var(--muted);font-size:12px}
+.wildbadge{display:inline-flex;align-items:center;gap:6px;background:rgba(231,193,90,.15);border:1px solid var(--gold);color:var(--gold);
+  padding:4px 10px;border-radius:999px;font-weight:700;font-size:13px;white-space:nowrap}
+.iconbtn{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);font-size:18px;flex:none}
+.opps{display:flex;gap:8px;padding:2px 12px 6px;overflow-x:auto}
+.opp{flex:1;min-width:92px;background:rgba(0,0,0,.25);border:1.5px solid transparent;border-radius:14px;padding:8px 10px;transition:.2s}
+.opp.turn{border-color:var(--gold);box-shadow:0 0 0 3px rgba(231,193,90,.18)}
+.opp .nm{font-weight:700;font-size:14px;display:flex;justify-content:space-between;gap:6px}
+.opp .sc{color:var(--muted);font-size:12px;margin-top:2px}
+.opp .fan{display:flex;margin-top:6px;height:22px}
+.opp .fan i{width:15px;height:22px;border-radius:3px;background:repeating-linear-gradient(45deg,#7a1f2b 0 3px,#8f2b39 3px 6px);border:1px solid #e9d8a6;margin-left:-8px;flex:none}
+.opp .fan i:first-child{margin-left:0}
+.opp .tag{font-size:11px;background:var(--gold);color:#2b2100;border-radius:6px;padding:1px 6px;font-weight:800}
+.table{display:flex;justify-content:center;align-items:center;gap:26px;padding:10px 0 4px}
+.pile{position:relative;border:0;background:none;padding:0;text-align:center}
+.pile .lbl{display:block;margin-top:6px;font-size:12px;color:var(--muted)}
+.pile.can .lbl{color:var(--gold);font-weight:700}
+.pile.can .cardback,.pile.can .card{box-shadow:0 0 0 3px rgba(231,193,90,.55),0 6px 14px rgba(0,0,0,.4)}
+.pile .count{position:absolute;top:-6px;right:-8px;background:#000a;border:1px solid rgba(255,255,255,.3);border-radius:10px;font-size:11px;padding:1px 6px}
+.cardback{width:var(--cw);height:var(--ch);border-radius:7px;border:2px solid #f1e3b4;
+  background:repeating-linear-gradient(45deg,#7a1f2b 0 5px,#932c3b 5px 10px);box-shadow:0 4px 10px rgba(0,0,0,.4);margin:0 auto}
+.emptyslot{width:var(--cw);height:var(--ch);border-radius:7px;border:2px dashed rgba(255,255,255,.25);margin:0 auto}
+.msg{min-height:38px;padding:2px 18px;text-align:center;font-size:14px;color:var(--cream);display:flex;align-items:center;justify-content:center}
+.msg.alert{color:var(--gold);font-weight:700}
+
+/* ---------- Cartes ---------- */
+.card{position:relative;width:var(--cw);height:var(--ch);border-radius:7px;background:var(--cream);color:var(--ink);
+  box-shadow:0 3px 8px rgba(0,0,0,.4);border:1px solid #d9cfae;display:inline-block;flex:none;user-select:none;-webkit-user-select:none;
+  transition:transform .14s, box-shadow .14s}
+.card .tl{position:absolute;top:3px;left:4px;line-height:1;font-weight:800;font-size:15px;text-align:center}
+.card .tl span{display:block;font-size:13px;margin-top:1px}
+.card .mid{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:25px;line-height:1}
+.card.joker{background:linear-gradient(160deg,#fff4cf,#f0cf72);color:#6b4a00}
+.card.joker .tl{font-size:9px;letter-spacing:.01em;left:3px}
+.card.joker::after{content:none}
+.card.joker .mid{font-size:30px;bottom:9px}
+.card.wild{background:linear-gradient(160deg,#fff8dc,#f3d884);border-color:var(--gold2)}
+.card.wild::after{content:"♛";position:absolute;top:2px;right:3px;font-size:12px;color:#a67600}
+.card.sel{transform:translateY(-12px);box-shadow:0 0 0 3px var(--gold),0 10px 18px rgba(0,0,0,.5);z-index:3}
+.card.sug::before{content:"";position:absolute;left:50%;bottom:-8px;width:8px;height:8px;margin-left:-4px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px var(--gold)}
+.card.lock{opacity:.55}
+.card.pop{animation:pop .28s ease-out}
+@keyframes pop{from{transform:scale(.6) translateY(-14px);opacity:0}to{transform:none;opacity:1}}
+
+/* ---------- Main du joueur ---------- */
+.handwrap{flex:1;min-height:0;overflow-y:auto;padding:10px 10px 4px;display:flex;flex-direction:column;justify-content:flex-end}
+.handinfo{text-align:center;font-size:13px;color:var(--muted);margin-bottom:8px;min-height:18px}
+.handinfo b{color:var(--gold)}
+.hand{display:flex;flex-wrap:wrap;gap:12px 10px;justify-content:center;align-items:flex-end;padding-top:14px}
+.group{display:flex;padding:5px 6px 5px 20px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16)}
+.group.run{border-color:rgba(120,190,255,.45);background:rgba(120,190,255,.08)}
+.group.book{border-color:rgba(255,170,100,.5);background:rgba(255,170,100,.08)}
+.group .card{margin-left:-14px}
+.group.out{border-color:var(--gold);background:rgba(231,193,90,.12);padding:5px 6px}
+.group.out .card{margin-left:0}
+.group.rest{border-style:dashed;background:rgba(0,0,0,.14);border-color:rgba(255,255,255,.22);padding:5px 6px;gap:4px}
+.group.rest{flex-wrap:wrap;justify-content:center;max-width:100%}
+.group.rest .card,.group.rest.small .card{margin-left:0}
+.group.small{padding:3px 4px 3px 14px;border-radius:9px}
+.group.small .card,.minihand .card{--cw:34px;--ch:49px}
+.group.small .card.joker .tl{font-size:7px}.group.small .card .tl{font-size:12px}.group.small .card .tl span{font-size:10px}.group.small .card .mid{font-size:18px;bottom:4px}
+.group.small .card{margin-left:-10px}
+.actions{padding:8px 14px 12px}
+.actions .btn{max-width:none}
+
+/* ---------- Modales ---------- */
+dialog{border:0;border-radius:20px;padding:0;background:#10382b;color:var(--cream);width:min(92vw,420px);max-height:86dvh;box-shadow:0 20px 60px #000a}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+.dlg{padding:18px;display:flex;flex-direction:column;gap:12px;max-height:86dvh;overflow-y:auto}
+.dlg h2{margin:0;font-size:22px}
+.dlg h4{margin:6px 0 2px;color:var(--gold);font-size:14px}
+.dlg p,.dlg li{margin:0;line-height:1.45;font-size:14.5px;color:#e4efe9}
+.dlg ul{margin:4px 0;padding-left:20px;display:flex;flex-direction:column;gap:5px}
+table.sc{width:100%;border-collapse:collapse;font-size:14px}
+table.sc th,table.sc td{padding:6px 4px;text-align:center;border-bottom:1px solid rgba(255,255,255,.12)}
+table.sc th{color:var(--gold);font-weight:700;font-size:13px}
+table.sc td:first-child,table.sc th:first-child{text-align:left;color:var(--muted)}
+table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gold)}
+.best{color:var(--gold)}
+.resrow{background:rgba(0,0,0,.2);border-radius:12px;padding:10px}
+.resrow .hd{display:flex;justify-content:space-between;font-weight:700;margin-bottom:6px}
+.resrow .hd .pts{color:var(--gold)}
+.resrow .hd .pts.zero{color:#7fe3a6}
+.minihand{display:flex;flex-wrap:wrap;gap:6px}
+.rank{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:rgba(0,0,0,.2)}
+.rank .pos{font-size:22px;width:30px;text-align:center}
+.rank .n{flex:1;font-weight:700}
+.rank.win{background:rgba(231,193,90,.18);border:1px solid var(--gold)}
+@media (min-height:760px){#hand{--cw:54px;--ch:78px}.table{--cw:58px;--ch:84px}.card .mid{font-size:29px}.card .tl{font-size:17px}}
+@media (min-height:760px){.group.small .card,.minihand .card{--cw:34px;--ch:49px}}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== Accueil ===== -->
+  <section id="home">
+    <div class="crown">♛</div>
+    <h1 class="serif">5 Rois</h1>
+    <p class="sub">Le rami à 5 couleurs, 11 manches, jokers qui montent d'une carte à chaque tour. Le moins de points gagne.</p>
+    <div class="panel">
+      <h3>Adversaires</h3>
+      <div class="seg" id="segOpp">
+        <button data-n="1">1</button><button data-n="2" class="on">2</button><button data-n="3">3</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="row">
+        <div style="text-align:left"><b>Aide au regroupement</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Montre tes combinaisons et une défausse conseillée</div></div>
+        <button class="switch on" id="swAide" aria-label="Aide"></button>
+      </div>
+    </div>
+    <button class="btn gold" id="btnNew">Nouvelle partie</button>
+    <button class="btn ghost" id="btnResume" hidden>Reprendre la partie</button>
+    <button class="linkbtn" id="btnRules">Règles du jeu</button>
+  </section>
+
+  <!-- ===== Partie ===== -->
+  <section id="game" hidden>
+    <div class="topbar">
+      <div class="round"><b class="serif" id="roundTitle"></b><small id="roundSub"></small></div>
+      <span class="wildbadge" id="wildBadge"></span>
+      <button class="iconbtn" id="btnScores" aria-label="Scores">☰</button>
+      <button class="iconbtn" id="btnMenu" aria-label="Menu">⋯</button>
+    </div>
+    <div class="opps" id="opps"></div>
+    <div class="table">
+      <button class="pile" id="pileDeck"><div id="deckVisual"></div><span class="lbl">Pioche</span></button>
+      <button class="pile" id="pileDiscard"><div id="discardVisual"></div><span class="lbl">Défausse</span></button>
+    </div>
+    <div class="msg" id="msg"></div>
+    <div class="handwrap">
+      <div class="handinfo" id="handInfo"></div>
+      <div class="hand" id="hand"></div>
+    </div>
+    <div class="actions"><button class="btn gold" id="btnAction" disabled>…</button></div>
+  </section>
+</div>
+
+<!-- ===== Modales ===== -->
+<dialog id="dlgRules"><div class="dlg">
+  <h2 class="serif">Règles</h2>
+  <h4>But</h4><p>Avoir le moins de points possible après 11 manches.</p>
+  <h4>Cartes</h4><p>116 cartes : 2 jeux de 5 couleurs (♠ ♣ ♥ ♦ ★) du 3 au Roi, plus 6 jokers. Valet = V, Dame = D, Roi = R.</p>
+  <h4>Manches</h4>
+  <ul><li>Manche 1 : 3 cartes chacun. Manche 2 : 4 cartes… Manche 11 : 13 cartes.</li>
+  <li><b>Jokers de la manche</b> : en plus des 6 jokers, toutes les cartes de la valeur de la manche (les 3 à la manche 1, les 4 à la manche 2… les Rois à la manche 11) sont des jokers.</li></ul>
+  <h4>Combinaisons</h4>
+  <ul><li><b>Brelan</b> : 3 cartes ou plus de même valeur (couleurs libres).</li>
+  <li><b>Suite</b> : 3 cartes ou plus qui se suivent dans la même couleur (de 3 à Roi, pas d'As).</li>
+  <li>Un joker remplace n'importe quelle carte. Un joker en trop se rajoute à une combinaison.</li></ul>
+  <h4>Un tour</h4>
+  <p>Tu pioches une carte (pioche ou dessus de la défausse), puis tu défausses une carte. Tu ne peux pas rejeter tout de suite la carte prise dans la défausse.</p>
+  <h4>Sortir</h4>
+  <p>Tu sors quand toutes tes cartes (après ta défausse) sont rangées en combinaisons. La manche s'arrête après un dernier tour pour chaque autre joueur.</p>
+  <h4>Points</h4>
+  <p>Les cartes qui ne sont dans aucune combinaison comptent : valeur de la carte (3 à 10), V = 11, D = 12, R = 13, joker de la manche = 20, joker = 50. Celui qui sort marque 0.</p>
+  <button class="btn gold" data-close>Compris</button>
+</div></dialog>
+
+<dialog id="dlgScores"><div class="dlg">
+  <h2 class="serif">Scores</h2>
+  <div id="scoresBody"></div>
+  <button class="btn gold" data-close>Fermer</button>
+</div></dialog>
+
+<dialog id="dlgRound"><div class="dlg" id="roundBody"></div></dialog>
+
+<dialog id="dlgMenu"><div class="dlg">
+  <h2 class="serif">Menu</h2>
+  <div class="row"><b>Aide au regroupement</b><button class="switch" id="swAide2" aria-label="Aide"></button></div>
+  <button class="btn ghost" id="btnMenuRules">Règles</button>
+  <button class="btn ghost" id="btnQuit">Quitter vers l'accueil</button>
+  <button class="btn gold" data-close>Retour à la partie</button>
+</div></dialog>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
