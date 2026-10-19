@@ -1,44 +1,59 @@
-/* 5 Rois — interface. Tout est local : la partie est sauvegardée dans le navigateur (localStorage). */
+/* 5 Rois — interface. Tout est local : la partie est sauvegardée dans le navigateur (localStorage).
+   Trois modes : contre l'ordinateur ('solo'), à deux en se passant l'appareil ('passe'),
+   à deux face à face sur un iPad posé à plat ('duo'). */
 (function () {
   'use strict';
   var E = window.Engine;
   var SAVE_KEY = 'cinqrois_partie_v1', PREF_KEY = 'cinqrois_prefs_v1';
   var BOT_NAMES = ['Camille', 'Hugo', 'Léa'];
 
-  var G = null;            // état de la partie
-  var selected = null;     // id de la carte sélectionnée
-  var running = false;     // boucle des bots en cours
-  var prefs = { aide: true, opp: 2 };
-  var lastNewId = null;    // dernière carte piochée par le joueur (animation)
+  var G = null;              // état de la partie (sérialisable)
+  var selected = null;       // id de la carte sélectionnée (joueur dont c'est le tour)
+  var running = false;       // boucle des adversaires en cours
+  var reveal = [false, false]; // mode face à face : main visible ou cachée par siège
+  var lastNewId = null;
+  var prefs = { aide: true, opp: 2, mode: 'solo', n1: 'Joueur 1', n2: 'Joueur 2' };
 
   function $(id) { return document.getElementById(id); }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function mode() { return (G && G.mode) || 'solo'; }
 
   /* ---------- Sauvegarde ---------- */
   function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) {} }
   function loadSave() { try { var s = localStorage.getItem(SAVE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
   function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
   function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) {} }
-  function loadPrefs() { try { var p = JSON.parse(localStorage.getItem(PREF_KEY)); if (p) { prefs.aide = p.aide !== false; prefs.opp = p.opp || 2; } } catch (e) {} }
+  function loadPrefs() {
+    try {
+      var p = JSON.parse(localStorage.getItem(PREF_KEY));
+      if (p) {
+        prefs.aide = p.aide !== false; prefs.opp = p.opp || 2;
+        if (p.mode === 'passe' || p.mode === 'duo') prefs.mode = p.mode;
+        if (p.n1) prefs.n1 = p.n1; if (p.n2) prefs.n2 = p.n2;
+      }
+    } catch (e) {}
+  }
 
   /* ---------- Cartes en HTML ---------- */
   function cardHTML(c, o) {
     o = o || {};
     var cls = ['card'];
-    var wild = E.isWild(c, G.wild);
     if (c.rank === 0) cls.push('joker');
-    if (wild) cls.push('wild');
+    if (E.isWild(c, G.wild)) cls.push('wild');
     if (o.sel) cls.push('sel');
     if (o.sug) cls.push('sug');
     if (o.lock) cls.push('lock');
     if (o.pop) cls.push('pop');
+    if (o.dual) cls.push('dual');
     var inner;
     if (c.rank === 0) {
       inner = '<div class="tl">JOKER</div><div class="mid">♛</div>';
     } else {
       var s = E.SUITS[c.suit];
-      inner = '<div class="tl" style="color:' + s.color + '">' + E.rankLabel(c.rank) + '<span>' + s.sym + '</span></div>' +
+      var idx = E.rankLabel(c.rank) + '<span>' + s.sym + '</span>';
+      inner = '<div class="tl" style="color:' + s.color + '">' + idx + '</div>' +
+              (o.dual ? '<div class="tl br" style="color:' + s.color + '">' + idx + '</div>' : '') +
               '<div class="mid" style="color:' + s.color + '">' + s.sym + '</div>';
     }
     return '<div class="' + cls.join(' ') + '" data-id="' + c.id + '">' + inner + '</div>';
@@ -57,57 +72,52 @@
     return h + '</div>';
   }
 
-  /* ---------- Affichage de la partie ---------- */
-  function me() { for (var i = 0; i < G.n; i++) if (G.human[i]) return i; return 0; }
-  function isMyTurn() { return G && !G.roundEnded && G.human[G.turn]; }
+  /* ---------- Qui regarde ? ---------- */
+  function viewer() {
+    if (mode() === 'passe') return G.turn;
+    for (var i = 0; i < G.n; i++) if (G.human[i]) return i;
+    return 0;
+  }
+  function isTurnOf(p) { return !!G && !G.roundEnded && G.turn === p && G.human[p]; }
+  function veilOn() { return mode() === 'passe' && !!G.veil && !G.roundEnded; }
 
-  function renderTop() {
-    $('roundTitle').textContent = 'Manche ' + (G.round + 1) + ' / 11';
-    $('roundSub').textContent = G.cards + ' cartes · toi : ' + G.scores[me()] + ' pts';
-    $('wildBadge').textContent = '♛ ' + E.rankLabel(G.wild) + ' = joker';
-  }
-  function renderOpps() {
-    var h = '';
-    for (var p = 0; p < G.n; p++) {
-      if (G.human[p]) continue;
-      var n = G.hands[p].length, fan = '';
-      for (var k = 0; k < Math.min(n, 14); k++) fan += '<i></i>';
-      h += '<div class="opp' + (G.turn === p && !G.roundEnded ? ' turn' : '') + '">' +
-           '<div class="nm"><span>' + esc(G.names[p]) + '</span>' + (G.outBy === p ? '<span class="tag">SORTI</span>' : '') + '</div>' +
-           '<div class="sc">' + G.scores[p] + ' pts</div><div class="fan">' + fan + '</div></div>';
-    }
-    $('opps').innerHTML = h;
-  }
-  function renderTable() {
-    var canDraw = isMyTurn() && G.phase === 'draw';
-    $('deckVisual').innerHTML = '<div class="cardback"></div><span class="count">' + G.deck.length + '</span>';
-    var top = G.discard[G.discard.length - 1];
-    $('discardVisual').innerHTML = top ? cardHTML(top) : '<div class="emptyslot"></div>';
-    $('pileDeck').classList.toggle('can', canDraw);
-    $('pileDiscard').classList.toggle('can', canDraw && !!top);
-  }
-  function renderMsg() {
-    var m = $('msg'), alert = false, txt = '';
-    if (G.roundEnded) txt = 'Manche terminée';
-    else if (isMyTurn()) {
-      if (G.phase === 'draw') txt = (G.last ? G.last + ' ' : '') + 'À toi : pioche ou prends la défausse.';
-      else txt = 'Choisis une carte à défausser.';
-      if (G.outBy >= 0 && G.outBy !== me()) { txt = G.names[G.outBy] + ' est sorti ! Dernier tour pour toi. ' + txt; alert = true; }
+  /* ---------- Éléments communs ---------- */
+  function msgFor(p) {
+    if (G.roundEnded) return { txt: 'Manche terminée', alert: false };
+    var txt, alert = false;
+    if (isTurnOf(p)) {
+      txt = G.phase === 'draw' ? (G.last ? G.last + ' ' : '') + 'À toi : pioche ou prends la défausse.' : 'Choisis une carte à défausser.';
+      if (G.outBy >= 0 && G.outBy !== p) { txt = G.names[G.outBy] + ' est sorti ! Dernier tour pour toi. ' + txt; alert = true; }
     } else {
-      txt = G.last || ('Au tour de ' + G.names[G.turn] + '…');
-      if (G.outBy >= 0) alert = true;
+      txt = G.human[G.turn] ? 'Au tour de ' + G.names[G.turn] + '…' : (G.last || 'Au tour de ' + G.names[G.turn] + '…');
+      if (G.outBy === p) { txt = 'Tu es sorti ! Dernier tour des autres. ' + txt; alert = true; }
+      else if (G.outBy >= 0) alert = true;
     }
-    m.textContent = txt; m.className = 'msg' + (alert ? ' alert' : '');
+    return { txt: txt, alert: alert };
   }
 
-  function renderHand() {
-    var p = me(), hand = G.hands[p], h = '', info = '';
+  function renderPiles(ids) {
+    var canDraw = !G.roundEnded && G.human[G.turn] && G.phase === 'draw' && !veilOn();
+    $(ids.deck).innerHTML = '<div class="cardback"></div><span class="count">' + G.deck.length + '</span>';
+    var top = G.discard[G.discard.length - 1];
+    $(ids.disc).innerHTML = top ? cardHTML(top, { dual: mode() === 'duo' }) : '<div class="emptyslot"></div>';
+    $(ids.bdeck).classList.toggle('can', canDraw);
+    $(ids.bdisc).classList.toggle('can', canDraw && !!top);
+  }
+
+  // Remplit la main du joueur p. hidden = cartes face cachée.
+  function renderHandInto(p, handEl, infoEl, hidden) {
+    var hand = G.hands[p], h = '', info = '', i;
+    if (hidden) {
+      for (i = 0; i < hand.length; i++) h += '<div class="cardback"></div>';
+      handEl.innerHTML = '<div class="group rest">' + h + '</div>';
+      infoEl.textContent = 'Main cachée';
+      return;
+    }
+    var choosing = isTurnOf(p) && G.phase === 'discard';
     var sug = null, selCard = null, layout;
-    var choosing = isMyTurn() && G.phase === 'discard';
     if (prefs.aide) {
-      if (choosing && selected != null) {
-        hand.forEach(function (c) { if (c.id === selected) selCard = c; });
-      }
+      if (choosing && selected != null) hand.forEach(function (c) { if (c.id === selected) selCard = c; });
       var base = selCard ? hand.filter(function (c) { return c !== selCard; }) : hand;
       var sol = E.solveHand(base, G.wild);
       layout = { groups: sol.groups, rest: sortHand(sol.rest), penalty: sol.penalty };
@@ -116,7 +126,7 @@
       layout = { groups: [], rest: sortHand(hand), penalty: null };
     }
     function opts(c) {
-      return { sel: c.id === selected, sug: c.id === sug, lock: c.id === G.noDiscard && G.phase === 'discard', pop: c.id === lastNewId };
+      return { sel: choosing && c.id === selected, sug: c.id === sug, lock: choosing && c.id === G.noDiscard, pop: c.id === lastNewId };
     }
     layout.groups.forEach(function (g) {
       h += '<div class="group ' + g.kind + '">';
@@ -124,13 +134,12 @@
       h += '</div>';
     });
     if (layout.rest.length) {
-      var wrap = prefs.aide;
-      if (wrap) h += '<div class="group rest">';
+      if (prefs.aide) h += '<div class="group rest">';
       layout.rest.forEach(function (c) { h += cardHTML(c, opts(c)); });
-      if (wrap) h += '</div>';
+      if (prefs.aide) h += '</div>';
     }
     if (selCard) h += '<div class="group out">' + cardHTML(selCard, opts(selCard)) + '</div>';
-    $('hand').innerHTML = h;
+    handEl.innerHTML = h;
 
     if (prefs.aide) {
       if (choosing) {
@@ -138,45 +147,103 @@
         else info = 'Le point doré marque la défausse conseillée';
       } else info = 'Cartes isolées : <b>' + layout.penalty + ' pts</b>';
     }
-    $('handInfo').innerHTML = info;
+    infoEl.innerHTML = info;
   }
 
-  function renderAction() {
-    var b = $('btnAction'), p = me();
-    b.disabled = true; b.textContent = '…';
-    if (G.roundEnded) { b.textContent = 'Voir les résultats'; b.disabled = false; return; }
-    if (!isMyTurn()) { b.textContent = 'Au tour de ' + G.names[G.turn] + '…'; return; }
-    if (G.phase === 'draw') { b.textContent = 'Touche la pioche ou la défausse'; return; }
-    if (selected == null) { b.textContent = 'Choisis une carte à défausser'; return; }
-    var card = G.hands[p].filter(function (c) { return c.id === selected; })[0];
-    if (!card) { selected = null; b.textContent = 'Choisis une carte à défausser'; return; }
+  function fillAction(p, btn, hidden) {
+    btn.disabled = true; btn.textContent = '…';
+    if (G.roundEnded) { btn.textContent = 'Voir les résultats'; btn.disabled = false; return; }
+    if (!isTurnOf(p)) { btn.textContent = 'Au tour de ' + G.names[G.turn] + '…'; return; }
+    if (G.phase === 'draw') { btn.textContent = 'Touche la pioche ou la défausse'; return; }
+    if (hidden) { btn.textContent = 'Affiche ta main pour choisir'; return; }
+    var card = null;
+    G.hands[p].forEach(function (c) { if (c.id === selected) card = c; });
+    if (!card) { selected = null; btn.textContent = 'Choisis une carte à défausser'; return; }
     var rest = G.hands[p].filter(function (c) { return c.id !== selected; });
     var out = G.outBy < 0 && E.solveHand(rest, G.wild).penalty === 0;
-    b.textContent = out ? 'Sortir en défaussant ' + E.cardName(card) : 'Défausser ' + E.cardName(card);
-    b.disabled = false;
+    btn.textContent = out ? 'Sortir en défaussant ' + E.cardName(card) : 'Défausser ' + E.cardName(card);
+    btn.disabled = false;
+  }
+
+  /* ---------- Affichage : contre l'ordinateur / passe-passe ---------- */
+  function renderSolo() {
+    var v = viewer();
+    $('roundTitle').textContent = 'Manche ' + (G.round + 1) + ' / 11';
+    $('roundSub').textContent = G.cards + ' cartes · ' + (mode() === 'solo' ? 'toi' : G.names[v]) + ' : ' + G.scores[v] + ' pts';
+    $('wildBadge').textContent = '♛ ' + E.rankLabel(G.wild) + ' = joker';
+    var h = '';
+    for (var p = 0; p < G.n; p++) {
+      if (p === v) continue;
+      var n = G.hands[p].length, fan = '';
+      for (var k = 0; k < Math.min(n, 14); k++) fan += '<i></i>';
+      h += '<div class="opp' + (G.turn === p && !G.roundEnded ? ' turn' : '') + '">' +
+           '<div class="nm"><span>' + esc(G.names[p]) + '</span>' + (G.outBy === p ? '<span class="tag">SORTI</span>' : '') + '</div>' +
+           '<div class="sc">' + G.scores[p] + ' pts</div><div class="fan">' + fan + '</div></div>';
+    }
+    $('opps').innerHTML = h;
+    renderPiles({ deck: 'deckVisual', disc: 'discardVisual', bdeck: 'pileDeck', bdisc: 'pileDiscard' });
+    var m = msgFor(v);
+    $('msg').textContent = m.txt; $('msg').className = 'msg' + (m.alert ? ' alert' : '');
+    renderHandInto(v, $('hand'), $('handInfo'), veilOn());
+    fillAction(v, $('btnAction'), false);
+    // voile « passe l'appareil »
+    var vl = veilOn();
+    $('veil').hidden = !vl;
+    if (vl) {
+      $('veilTitle').textContent = 'À ' + G.names[G.turn] + ' de jouer';
+      $('veilLast').textContent = G.last || '';
+      $('btnVeil').textContent = 'Je suis ' + G.names[G.turn];
+    }
+  }
+
+  /* ---------- Affichage : face à face ---------- */
+  function renderDuo() {
+    for (var p = 0; p < 2; p++) {
+      var seat = $('seat' + p);
+      var wild = '♛ ' + E.rankLabel(G.wild) + ' = joker';
+      seat.querySelector('.seathead').innerHTML =
+        '<div class="who"><b class="serif">' + esc(G.names[p]) + '</b><span>' + G.scores[p] + ' pts' + (G.outBy === p ? ' · <em>SORTI</em>' : '') + '</span></div>' +
+        '<span class="wildbadge">' + wild + '</span>' +
+        '<span class="rd">Manche ' + (G.round + 1) + '/11</span>' +
+        '<button class="iconbtn js-scores" aria-label="Scores">☰</button>';
+      seat.classList.toggle('turn', isTurnOf(p));
+      var m = msgFor(p), me = seat.querySelector('.msg');
+      me.textContent = m.txt; me.className = 'msg' + (m.alert ? ' alert' : '');
+      var hidden = !reveal[p];
+      renderHandInto(p, seat.querySelector('.hand'), seat.querySelector('.handinfo'), hidden);
+      seat.querySelector('.js-reveal').textContent = hidden ? '👁 Voir ma main' : '🙈 Cacher ma main';
+      fillAction(p, seat.querySelector('.js-action'), hidden);
+    }
+    renderPiles({ deck: 'duoDeckVisual', disc: 'duoDiscardVisual', bdeck: 'duoPileDeck', bdisc: 'duoPileDiscard' });
   }
 
   function renderAll() {
-    renderTop(); renderOpps(); renderTable(); renderMsg(); renderHand(); renderAction();
+    if (!G) return;
+    if (mode() === 'duo') renderDuo(); else renderSolo();
   }
 
-  /* ---------- Actions du joueur ---------- */
+  /* ---------- Actions ---------- */
   function humanDraw(src) {
-    if (!isMyTurn() || G.phase !== 'draw') return;
+    if (!G || G.roundEnded || !G.human[G.turn] || G.phase !== 'draw' || veilOn()) return;
     if (src === 'discard' && !G.discard.length) return;
+    var p = G.turn;
     var card = E.draw(G, src);
-    lastNewId = card.id; selected = null;
-    G.last = '';
+    lastNewId = card.id; selected = null; G.last = '';
+    if (mode() === 'duo') reveal[p] = true;
     save(); renderAll();
     lastNewId = null;
   }
   function humanDiscard() {
-    if (!isMyTurn() || G.phase !== 'discard' || selected == null) return;
-    var name = G.names[me()];
+    if (!G || G.roundEnded || !G.human[G.turn] || G.phase !== 'discard' || selected == null) return;
+    var p = G.turn;
     var r = E.discard(G, selected);
     if (!r) return;
     selected = null;
-    G.last = r.wentOut ? 'Tu es sorti !' : 'Tu as défaussé ' + E.cardName(r.card) + '.';
+    var solo = mode() === 'solo';
+    G.last = r.wentOut ? (solo ? 'Tu es sorti !' : G.names[p] + ' est sorti !')
+                       : (solo ? 'Tu as défaussé ' : G.names[p] + ' a défaussé ') + E.cardName(r.card) + '.';
+    if (mode() === 'duo') reveal[p] = false;
+    if (mode() === 'passe' && !G.roundEnded) G.veil = true;
     save(); renderAll();
     afterMove();
   }
@@ -184,14 +251,23 @@
     if (G.roundEnded) { setTimeout(showRound, 700); return; }
     tick();
   }
+  function flash(el, txt) { el.textContent = txt; }
+
+  function onHandClick(e, p, msgEl) {
+    var el = e.target.closest('.card'); if (!el) return;
+    if (!isTurnOf(p) || G.phase !== 'discard' || veilOn()) return;
+    if (mode() === 'duo' && !reveal[p]) return;
+    var id = +el.dataset.id;
+    if (id === G.noDiscard) { flash(msgEl, 'Tu ne peux pas rejeter la carte que tu viens de prendre dans la défausse.'); return; }
+    selected = (selected === id) ? null : id;
+    renderAll();
+  }
 
   /* ---------- Tours des adversaires ---------- */
   function describe(r) {
     var nm = G.names[r.p];
-    var s = nm + (r.src === 'discard' ? ' a pris ' + E.cardName(r.drawn) + ' dans la défausse' : ' a pioché');
-    s += ' et défaussé ' + E.cardName(r.discarded) + '.';
-    if (r.wentOut) s = nm + ' sort en défaussant ' + E.cardName(r.discarded) + ' !';
-    return s;
+    if (r.wentOut) return nm + ' sort en défaussant ' + E.cardName(r.discarded) + ' !';
+    return nm + (r.src === 'discard' ? ' a pris ' + E.cardName(r.drawn) + ' dans la défausse' : ' a pioché') + ' et défaussé ' + E.cardName(r.discarded) + '.';
   }
   async function tick() {
     if (running || !G) return;
@@ -206,14 +282,14 @@
         save(); renderAll();
       }
     } finally { running = false; }
-    if (G && G.roundEnded) { setTimeout(showRound, 900); }
+    if (G && G.roundEnded) setTimeout(showRound, 900);
     else if (G) renderAll();
   }
 
-  /* ---------- Fin de manche / de partie ---------- */
+  /* ---------- Scores, fin de manche, fin de partie ---------- */
   function scoresTable() {
-    var h = '<table class="sc"><tr><th></th>';
-    for (var p = 0; p < G.n; p++) h += '<th>' + esc(G.names[p]) + '</th>';
+    var h = '<table class="sc"><tr><th></th>', p;
+    for (p = 0; p < G.n; p++) h += '<th>' + esc(G.names[p]) + '</th>';
     h += '</tr>';
     G.history.forEach(function (row, i) {
       var min = Math.min.apply(null, row);
@@ -226,65 +302,101 @@
     G.scores.forEach(function (v) { h += '<td' + (v === mn && G.history.length ? ' class="best"' : '') + '>' + v + '</td>'; });
     return h + '</tr></table>';
   }
-  function showScores() { $('scoresBody').innerHTML = scoresTable(); $('dlgScores').showModal(); }
+  function showScores(rot) {
+    $('scoresBody').innerHTML = scoresTable();
+    $('dlgScores').style.transform = rot ? 'rotate(180deg)' : '';
+    $('dlgScores').showModal();
+  }
 
-  function showRound() {
-    if (!G || !G.roundEnded) return;
-    var d = $('dlgRound'), b = $('roundBody'), h = '';
+  function roundHTML(compact) {
+    var h = '', p;
     if (G.over) {
       var order = G.scores.map(function (s, i) { return { s: s, i: i }; }).sort(function (a, b) { return a.s - b.s; });
       h += '<h2 class="serif">Fin de partie</h2>';
       order.forEach(function (o, k) {
-        var medal = k === 0 ? '🏆' : (k + 1) + '.';
-        h += '<div class="rank' + (k === 0 ? ' win' : '') + '"><span class="pos">' + medal + '</span><span class="n">' + esc(G.names[o.i]) + '</span><b>' + o.s + ' pts</b></div>';
+        var tie = k > 0 && o.s === order[0].s;
+        var medal = (k === 0 || tie) ? '🏆' : (k + 1) + '.';
+        h += '<div class="rank' + ((k === 0 || tie) ? ' win' : '') + '"><span class="pos">' + medal + '</span><span class="n">' + esc(G.names[o.i]) + '</span><b>' + o.s + ' pts</b></div>';
       });
-      var winner = order[0].i;
-      h += '<p>' + (G.human[winner] ? 'Bravo, tu gagnes la partie !' : esc(G.names[winner]) + ' gagne la partie.') + '</p>';
-      h += scoresTable();
-      h += '<button class="btn gold" id="btnAgain">Nouvelle partie</button><button class="btn ghost" id="btnHomeEnd">Accueil</button>';
+      var w = order[0].i;
+      var tied = order.length > 1 && order[1].s === order[0].s;
+      h += '<p>' + (tied ? 'Égalité !' : (mode() === 'solo' && G.human[w]) ? 'Bravo, tu gagnes la partie !' : esc(G.names[w]) + ' gagne la partie.') + '</p>';
+      if (!compact) h += scoresTable();
+      h += '<button class="btn gold js-again">Nouvelle partie</button><button class="btn ghost js-home">Accueil</button>';
     } else {
       h += '<h2 class="serif">Manche ' + (G.round + 1) + ' terminée</h2>';
-      G.results.forEach(function (r, p) {
-        h += '<div class="resrow"><div class="hd"><span>' + esc(G.names[p]) + (r.out ? ' · sorti' : '') + '</span><span class="pts' + (r.penalty === 0 ? ' zero' : '') + '">+' + r.penalty + ' pts</span></div><div class="minihand">';
+      G.results.forEach(function (r, q) {
+        h += '<div class="resrow"><div class="hd"><span>' + esc(G.names[q]) + (r.out ? ' · sorti' : '') + '</span><span class="pts' + (r.penalty === 0 ? ' zero' : '') + '">+' + r.penalty + ' pts</span></div><div class="minihand">';
         r.groups.forEach(function (g) { h += groupHTML(g, true); });
         if (r.rest.length) { h += '<div class="group rest small">'; sortHand(r.rest).forEach(function (c) { h += cardHTML(c); }); h += '</div>'; }
         h += '</div></div>';
       });
-      h += scoresTable();
-      h += '<button class="btn gold" id="btnNext">Manche suivante</button>';
+      if (compact) {
+        h += '<div class="totline">' + G.names.map(function (n, q) { return esc(n) + ' <b>' + G.scores[q] + '</b>'; }).join(' · ') + '</div>';
+      } else h += scoresTable();
+      h += '<button class="btn gold js-next">Manche suivante</button>';
     }
-    b.innerHTML = h;
-    if (!d.open) d.showModal();
-    var bn = $('btnNext'), ba = $('btnAgain'), bh = $('btnHomeEnd');
-    if (bn) bn.onclick = function () { d.close(); E.nextRound(G); selected = null; save(); renderAll(); afterMove(); };
-    if (ba) ba.onclick = function () { d.close(); startNew(prefs.opp); };
-    if (bh) bh.onclick = function () { d.close(); goHome(); };
+    return h;
+  }
+  function showRound() {
+    if (!G || !G.roundEnded) return;
+    if (mode() === 'duo') {
+      $('rpTop').innerHTML = roundHTML(true);
+      $('rpBottom').innerHTML = roundHTML(true);
+      $('duoRound').hidden = false;
+    } else {
+      $('roundBody').innerHTML = roundHTML(false);
+      if (!$('dlgRound').open) $('dlgRound').showModal();
+    }
+  }
+  function closeRound() {
+    $('duoRound').hidden = true;
+    if ($('dlgRound').open) $('dlgRound').close();
   }
 
   /* ---------- Navigation ---------- */
-  function showGame() { $('home').hidden = true; $('game').hidden = false; }
+  function showGame() {
+    $('home').hidden = true;
+    $('game').hidden = mode() === 'duo';
+    $('duo').hidden = mode() !== 'duo';
+  }
   function goHome() {
     if (G && G.over) clearSave();
-    G = null;
-    $('game').hidden = true; $('home').hidden = false; refreshHome();
+    G = null; selected = null;
+    $('game').hidden = true; $('duo').hidden = true; $('veil').hidden = true; $('duoRound').hidden = true;
+    $('home').hidden = false; refreshHome();
   }
-  function startNew(nOpp) {
-    var names = ['Toi'], human = [true], i;
-    for (i = 0; i < nOpp; i++) { names.push(BOT_NAMES[i]); human.push(false); }
+  function startNew() {
+    var names, human, i;
+    if (prefs.mode === 'solo') {
+      names = ['Toi']; human = [true];
+      for (i = 0; i < prefs.opp; i++) { names.push(BOT_NAMES[i]); human.push(false); }
+    } else {
+      var a = (prefs.n1 || '').trim() || 'Joueur 1', b = (prefs.n2 || '').trim() || 'Joueur 2';
+      if (a === b) b += ' (2)';
+      names = [a, b]; human = [true, true];
+    }
     G = E.newGame(names, human);
-    selected = null; save(); showGame(); renderAll(); afterMove();
+    G.mode = prefs.mode;
+    G.veil = prefs.mode === 'passe';
+    selected = null; reveal = [false, false];
+    save(); showGame(); renderAll(); afterMove();
   }
   function refreshHome() {
     var s = loadSave();
     $('btnResume').hidden = !(s && !s.over);
     document.querySelectorAll('#segOpp button').forEach(function (b) { b.classList.toggle('on', +b.dataset.n === prefs.opp); });
+    document.querySelectorAll('#segMode button').forEach(function (b) { b.classList.toggle('on', b.dataset.m === prefs.mode); });
+    $('optSolo').hidden = prefs.mode !== 'solo';
+    $('optNames').hidden = prefs.mode === 'solo';
+    $('n1').value = prefs.n1; $('n2').value = prefs.n2;
     $('swAide').classList.toggle('on', prefs.aide);
     $('swAide2').classList.toggle('on', prefs.aide);
   }
   function setAide(v) {
     prefs.aide = v; savePrefs();
     $('swAide').classList.toggle('on', v); $('swAide2').classList.toggle('on', v);
-    if (G && !$('game').hidden) renderAll();
+    if (G) renderAll();
   }
 
   /* ---------- Branchements ---------- */
@@ -293,41 +405,70 @@
     document.querySelectorAll('#segOpp button').forEach(function (b) {
       b.onclick = function () { prefs.opp = +b.dataset.n; savePrefs(); refreshHome(); };
     });
+    document.querySelectorAll('#segMode button').forEach(function (b) {
+      b.onclick = function () { prefs.mode = b.dataset.m; savePrefs(); refreshHome(); };
+    });
+    $('n1').oninput = function () { prefs.n1 = this.value.slice(0, 14); savePrefs(); };
+    $('n2').oninput = function () { prefs.n2 = this.value.slice(0, 14); savePrefs(); };
     $('swAide').onclick = function () { setAide(!prefs.aide); };
     $('swAide2').onclick = function () { setAide(!prefs.aide); };
     $('btnNew').onclick = function () {
       var s = loadSave();
       if (s && !s.over && !confirm('Une partie est en cours. La remplacer par une nouvelle ?')) return;
-      startNew(prefs.opp);
+      startNew();
     };
     $('btnResume').onclick = function () {
       G = loadSave(); if (!G) return;
-      selected = null; showGame(); renderAll();
+      selected = null; reveal = [false, false];
+      showGame(); renderAll();
       if (G.roundEnded) showRound(); else tick();
     };
     $('btnRules').onclick = function () { $('dlgRules').showModal(); };
     $('btnMenuRules').onclick = function () { $('dlgMenu').close(); $('dlgRules').showModal(); };
-    $('btnScores').onclick = showScores;
+    $('btnScores').onclick = function () { showScores(false); };
     $('btnMenu').onclick = function () { $('dlgMenu').showModal(); };
+    $('btnMenuDuo').onclick = function () { $('dlgMenu').showModal(); };
     $('btnQuit').onclick = function () { $('dlgMenu').close(); goHome(); };
+    $('dlgScores').addEventListener('close', function () { this.style.transform = ''; });
     document.querySelectorAll('[data-close]').forEach(function (b) { b.onclick = function () { b.closest('dialog').close(); }; });
 
-    $('pileDeck').onclick = function () { humanDraw('deck'); };
-    $('pileDiscard').onclick = function () { humanDraw('discard'); };
-    $('hand').onclick = function (e) {
-      var el = e.target.closest('.card'); if (!el) return;
-      if (!isMyTurn() || G.phase !== 'discard') return;
-      var id = +el.dataset.id;
-      if (id === G.noDiscard) { G.last = ''; $('msg').textContent = 'Tu ne peux pas rejeter la carte que tu viens de prendre dans la défausse.'; return; }
-      selected = (selected === id) ? null : id;
-      renderHand(); renderAction();
-    };
-    $('btnAction').onclick = function () {
-      if (G.roundEnded) { showRound(); return; }
-      humanDiscard();
-    };
+    // piles (deux jeux de boutons : vue normale et vue face à face)
+    ['pileDeck', 'duoPileDeck'].forEach(function (id) { $(id).onclick = function () { humanDraw('deck'); }; });
+    ['pileDiscard', 'duoPileDiscard'].forEach(function (id) { $(id).onclick = function () { humanDraw('discard'); }; });
+
+    // vue normale
+    $('hand').onclick = function (e) { onHandClick(e, viewer(), $('msg')); };
+    $('btnAction').onclick = function () { if (G.roundEnded) showRound(); else humanDiscard(); };
+    $('btnVeil').onclick = function () { G.veil = false; save(); renderAll(); };
+
+    // vue face à face (délégation sur chaque siège)
+    [0, 1].forEach(function (p) {
+      var seat = $('seat' + p);
+      seat.querySelector('.hand').onclick = function (e) { onHandClick(e, p, seat.querySelector('.msg')); };
+      seat.querySelector('.js-reveal').onclick = function () { reveal[p] = !reveal[p]; renderAll(); };
+      seat.querySelector('.js-action').onclick = function () {
+        if (G.roundEnded) { showRound(); return; }
+        if (G.turn === p) humanDiscard();
+      };
+      seat.querySelector('.seathead').onclick = function (e) {
+        if (e.target.closest('.js-scores')) showScores(p === 1);
+      };
+    });
+
+    // boutons de fin de manche / de partie (dialogue et vue face à face)
+    document.addEventListener('click', function (e) {
+      var t = e.target.closest('.js-next, .js-again, .js-home');
+      if (!t || !G) return;
+      if (t.classList.contains('js-next')) {
+        closeRound(); E.nextRound(G); selected = null; reveal = [false, false];
+        if (mode() === 'passe') G.veil = true;
+        save(); renderAll(); afterMove();
+      } else if (t.classList.contains('js-again')) { closeRound(); startNew(); }
+      else { closeRound(); goHome(); }
+    });
+
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden && G && !$('game').hidden && !G.roundEnded && !G.human[G.turn]) tick();
+      if (!document.hidden && G && !G.roundEnded && !G.human[G.turn]) tick();
     });
 
     refreshHome();

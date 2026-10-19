@@ -144,6 +144,48 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
 .rank.win{background:rgba(231,193,90,.18);border:1px solid var(--gold)}
 @media (min-height:760px){#hand{--cw:54px;--ch:78px}.table{--cw:58px;--ch:84px}.card .mid{font-size:29px}.card .tl{font-size:17px}}
 @media (min-height:760px){.group.small .card,.minihand .card{--cw:34px;--ch:49px}}
+
+/* ---------- Mode à deux ---------- */
+.modes{display:flex;flex-direction:column;gap:8px}
+.modes button{text-align:left;padding:11px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:transparent;line-height:1.3}
+.modes button small{display:block;color:var(--muted);font-size:12.5px;margin-top:1px}
+.modes button.on{background:rgba(231,193,90,.16);border-color:var(--gold)}
+.panel input{width:100%;padding:11px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.25);color:var(--cream);font:inherit;font-size:16px}
+#veil{position:fixed;inset:0;z-index:50;background:radial-gradient(120% 80% at 50% 0%,var(--felt1),var(--felt2) 70%);display:flex;align-items:center;justify-content:center;padding:24px}
+.veilbox{display:flex;flex-direction:column;align-items:center;gap:12px;text-align:center;max-width:340px;width:100%}
+.veilbox h2{margin:0;font-size:30px}.veilbox p{margin:0;line-height:1.4}
+.cardback.sm{--cw:30px;--ch:44px}
+#duo{height:100dvh;display:grid;grid-template-rows:1fr auto 1fr;min-height:0}
+#duo .seat{display:flex;flex-direction:column;min-height:0;padding:8px 14px;border:2px solid transparent;border-radius:18px;margin:4px;transition:.2s;--cw:44px;--ch:64px}
+#duo .seat.turn{border-color:var(--gold);background:rgba(231,193,90,.06);box-shadow:0 0 0 4px rgba(231,193,90,.12)}
+#duo .seat.top{transform:rotate(180deg)}
+.seathead{display:flex;align-items:center;gap:10px}
+.seathead .who{flex:1;line-height:1.15}.seathead .who b{font-size:19px;display:block}
+.seathead .who span{color:var(--muted);font-size:13px}.seathead .who em{color:var(--gold);font-style:normal;font-weight:800}
+.seathead .rd{color:var(--muted);font-size:12.5px;white-space:nowrap}
+#duo .handwrap{padding:4px 0}
+#duo .hand{padding-top:12px}
+.seatbtns{display:flex;gap:8px}
+.seatbtns .btn{padding:13px 12px;font-size:16px;max-width:none}
+.seatbtns .js-reveal{flex:0 0 38%}.seatbtns .js-action{flex:1}
+.midstrip{display:flex;align-items:center;justify-content:center;gap:28px;padding:6px 0;--cw:50px;--ch:72px}
+.midstrip .pile .lbl{display:none}
+.card.dual .mid{bottom:auto;top:50%;margin-top:-14px}
+.card .tl.br{top:auto;left:auto;bottom:3px;right:4px;transform:rotate(180deg)}
+.card.dual::after{content:none}
+#duoRound{position:fixed;inset:0;z-index:60;background:rgba(5,20,15,.98);display:grid;grid-template-rows:1fr 1fr}
+#duoRound .half{min-height:0;overflow-y:auto;display:flex;justify-content:center;align-items:flex-start;padding:10px}
+#duoRound .half.top{transform:rotate(180deg)}
+#duoRound .dlg{width:min(94vw,520px);max-height:none}
+.totline{text-align:center;color:var(--muted)}.totline b{color:var(--gold)}
+@media (min-width:700px){
+  #duo .seat{--cw:72px;--ch:104px}
+  #duo .seat .card .tl{font-size:20px}#duo .seat .card .tl span{font-size:17px}#duo .seat .card .mid{font-size:36px;bottom:9px}
+  .midstrip{--cw:68px;--ch:98px;gap:48px}
+  .midstrip .card .tl{font-size:19px}.midstrip .card.dual .mid{font-size:34px}
+  .seathead .who b{font-size:24px}
+  .seatbtns .btn{font-size:18px}
+}
 </style>
 </head>
 <body>
@@ -155,10 +197,23 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
     <h1 class="serif">5 Rois</h1>
     <p class="sub">Le rami à 5 couleurs, 11 manches, jokers qui montent d'une carte à chaque tour. Le moins de points gagne.</p>
     <div class="panel">
+      <h3>Mode de jeu</h3>
+      <div class="modes" id="segMode">
+        <button data-m="solo" class="on"><b>Contre l'ordinateur</b><small>1 à 3 adversaires</small></button>
+        <button data-m="passe"><b>À deux, on se passe l'appareil</b><small>Un écran masque la main entre les tours</small></button>
+        <button data-m="duo"><b>À deux, face à face</b><small>iPad posé à plat, chacun de son côté</small></button>
+      </div>
+    </div>
+    <div class="panel" id="optSolo">
       <h3>Adversaires</h3>
       <div class="seg" id="segOpp">
         <button data-n="1">1</button><button data-n="2" class="on">2</button><button data-n="3">3</button>
       </div>
+    </div>
+    <div class="panel" id="optNames" hidden>
+      <h3>Joueurs</h3>
+      <input id="n1" maxlength="14" autocomplete="off" aria-label="Nom du joueur 1">
+      <input id="n2" maxlength="14" autocomplete="off" aria-label="Nom du joueur 2" style="margin-top:8px">
     </div>
     <div class="panel">
       <div class="row">
@@ -191,6 +246,42 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
     </div>
     <div class="actions"><button class="btn gold" id="btnAction" disabled>…</button></div>
   </section>
+
+  <!-- ===== Face à face (iPad) ===== -->
+  <section id="duo" hidden>
+    <div class="seat top" id="seat1">
+      <div class="seathead"></div>
+      <div class="msg"></div>
+      <div class="handwrap"><div class="handinfo"></div><div class="hand"></div></div>
+      <div class="seatbtns"><button class="btn ghost js-reveal"></button><button class="btn gold js-action" disabled>…</button></div>
+    </div>
+    <div class="midstrip">
+      <button class="pile" id="duoPileDeck"><div id="duoDeckVisual"></div><span class="lbl">Pioche</span></button>
+      <button class="iconbtn" id="btnMenuDuo" aria-label="Menu">⋯</button>
+      <button class="pile" id="duoPileDiscard"><div id="duoDiscardVisual"></div><span class="lbl">Défausse</span></button>
+    </div>
+    <div class="seat bottom" id="seat0">
+      <div class="seathead"></div>
+      <div class="msg"></div>
+      <div class="handwrap"><div class="handinfo"></div><div class="hand"></div></div>
+      <div class="seatbtns"><button class="btn ghost js-reveal"></button><button class="btn gold js-action" disabled>…</button></div>
+    </div>
+  </section>
+</div>
+
+<div id="veil" hidden>
+  <div class="veilbox">
+    <div class="crown" style="font-size:54px">♛</div>
+    <h2 class="serif" id="veilTitle"></h2>
+    <p id="veilLast"></p>
+    <p style="color:var(--muted)">Passe l'appareil, puis touche le bouton.</p>
+    <button class="btn gold" id="btnVeil"></button>
+  </div>
+</div>
+
+<div id="duoRound" hidden>
+  <div class="half top"><div class="dlg" id="rpTop"></div></div>
+  <div class="half"><div class="dlg" id="rpBottom"></div></div>
 </div>
 
 <!-- ===== Modales ===== -->

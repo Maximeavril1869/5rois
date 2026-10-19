@@ -1,5 +1,5 @@
 /* Service worker : met l'application en cache pour jouer hors ligne. */
-var CACHE = 'cinqrois-v1';
+var CACHE = 'cinqrois-v2';
 var FILES = ['./', './index.html', './engine.js', './app.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
