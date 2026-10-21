@@ -1,6 +1,6 @@
 # 5 Rois
 
-Rami à 5 couleurs, 11 manches. Quatre modes : contre l'ordinateur, à deux en se passant l'appareil, à deux face à face sur un iPad posé à plat, et la variante solitaire à une personne. Fonctionne en local et hors ligne.
+Rami à 5 couleurs, 11 manches. Quatre modes : contre l'ordinateur (1 à 6 adversaires, jusqu'à 7 joueurs), à deux en se passant l'appareil, à deux face à face sur un iPad posé à plat, et la variante solitaire à une personne. Fonctionne en local et hors ligne.
 
 ## Variante solitaire
 

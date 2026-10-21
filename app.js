@@ -5,7 +5,7 @@
   'use strict';
   var E = window.Engine;
   var SAVE_KEY = 'cinqrois_partie_v1', PREF_KEY = 'cinqrois_prefs_v1';
-  var BOT_NAMES = ['Camille', 'Hugo', 'Léa'];
+  var BOT_NAMES = ['Camille', 'Hugo', 'Léa', 'Noé', 'Inès', 'Louis'];   // jusqu'à 6 adversaires (7 joueurs)
 
   var G = null;              // état de la partie (sérialisable)
   var selected = null;       // id de la carte sélectionnée (joueur dont c'est le tour)
@@ -29,7 +29,7 @@
     try {
       var p = JSON.parse(localStorage.getItem(PREF_KEY));
       if (p) {
-        prefs.aide = p.aide !== false; prefs.opp = p.opp || 2;
+        prefs.aide = p.aide !== false; prefs.opp = Math.min(6, Math.max(1, p.opp || 2));
         if (p.mode === 'passe' || p.mode === 'duo' || p.mode === 'seul') prefs.mode = p.mode;
         if (p.n1) prefs.n1 = p.n1; if (p.n2) prefs.n2 = p.n2;
       }
@@ -184,6 +184,7 @@
            '<div class="sc">' + G.scores[p] + ' pts</div><div class="fan">' + fan + '</div></div>';
     }
     $('opps').innerHTML = h;
+    $('opps').className = 'opps' + (G.n > 4 ? ' many' : '');
     renderPiles({ deck: 'deckVisual', disc: 'discardVisual', bdeck: 'pileDeck', bdisc: 'pileDiscard' });
     var m = msgFor(v);
     $('msg').textContent = m.txt; $('msg').className = 'msg' + (m.alert ? ' alert' : '');
@@ -440,7 +441,7 @@
     try {
       while (G && !G.roundEnded && !G.human[G.turn]) {
         renderAll();
-        await sleep(950);
+        await sleep(G.n > 4 ? 650 : 950);
         if (!G) break;
         var r = E.botPlay(G);
         G.last = describe(r);
@@ -453,7 +454,7 @@
 
   /* ---------- Scores, fin de manche, fin de partie ---------- */
   function scoresTable() {
-    var h = '<table class="sc"><tr><th></th>', p;
+    var h = '<table class="sc' + (G.n > 4 ? ' many' : '') + '"><tr><th></th>', p;
     for (p = 0; p < G.n; p++) h += '<th>' + esc(G.names[p]) + '</th>';
     h += '</tr>';
     G.history.forEach(function (row, i) {

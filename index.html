@@ -59,6 +59,8 @@ button{font:inherit;color:inherit}
   padding:4px 10px;border-radius:999px;font-weight:700;font-size:13px;white-space:nowrap}
 .iconbtn{width:38px;height:38px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);font-size:18px;flex:none}
 .opps{display:flex;gap:8px;padding:2px 12px 6px;overflow-x:auto}
+.opps.many{flex-wrap:wrap;overflow-x:visible}.opps.many .opp{flex:1 1 29%;min-width:0;padding:6px 8px}.opps.many .opp .fan i{width:11px;margin-left:-6px}
+table.sc.many{font-size:12px}table.sc.many th{font-size:10.5px}table.sc.many th,table.sc.many td{padding:6px 1px}
 .opp{flex:1;min-width:92px;background:rgba(0,0,0,.25);border:1.5px solid transparent;border-radius:14px;padding:8px 10px;transition:.2s}
 .opp.turn{border-color:var(--gold);box-shadow:0 0 0 3px rgba(231,193,90,.18)}
 .opp .nm{font-weight:700;font-size:14px;display:flex;justify-content:space-between;gap:6px}
@@ -235,7 +237,7 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
     <div class="panel">
       <h3>Mode de jeu</h3>
       <div class="modes" id="segMode">
-        <button data-m="solo" class="on"><b>Contre l'ordinateur</b><small>1 à 3 adversaires</small></button>
+        <button data-m="solo" class="on"><b>Contre l'ordinateur</b><small>1 à 6 adversaires (jusqu'à 7 joueurs)</small></button>
         <button data-m="passe"><b>À deux, on se passe l'appareil</b><small>Un écran masque la main entre les tours</small></button>
         <button data-m="duo"><b>À deux, face à face</b><small>iPad posé à plat, chacun de son côté</small></button>
         <button data-m="seul"><b>Seul, variante solitaire</b><small>11 mains étalées, 28 cartes à piocher</small></button>
@@ -244,7 +246,7 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
     <div class="panel" id="optSolo">
       <h3>Adversaires</h3>
       <div class="seg" id="segOpp">
-        <button data-n="1">1</button><button data-n="2" class="on">2</button><button data-n="3">3</button>
+        <button data-n="1">1</button><button data-n="2" class="on">2</button><button data-n="3">3</button><button data-n="4">4</button><button data-n="5">5</button><button data-n="6">6</button>
       </div>
     </div>
     <div class="panel" id="optNames" hidden>
