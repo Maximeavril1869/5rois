@@ -288,11 +288,97 @@
     return { p: p, src: src, drawn: drawn, discarded: r.card, wentOut: r.wentOut };
   }
 
+  /* ---------- Variante solitaire (une personne) ----------
+     11 mains étalées face visible (3, 4, … 13 cartes) ; les 28 cartes restantes forment la pioche.
+     L'atout de la main d'indice i (0 à 10) est i + 3. À chaque tour : on prend la carte du dessus de la
+     pioche, on la place dans une main non retournée, puis on défausse une carte de cette main
+     (définitivement). Une main dont toutes les cartes sont rangées en brelans/suites est retournée.
+     Gagné quand les 11 mains sont retournées ; perdu si la pioche s'épuise avant. */
+  function newSolitaire() {
+    var deck = shuffle(makeDeck()), hands = [], flipped = [], i, k, h;
+    for (i = 0; i < 11; i++) {
+      h = [];
+      for (k = 0; k < i + 3; k++) h.push(deck.pop());
+      hands.push(h); flipped.push(false);
+    }
+    var g = { mode: 'seul', hands: hands, flipped: flipped, deck: deck, discard: [], drawn: null, placed: null,
+              target: -1, phase: 'place', over: false, won: false, turns: 0, last: '' };
+    for (i = 0; i < 11; i++) soloCheckFlip(g, i);
+    soloAfterTurn(g);
+    return g;
+  }
+  function soloCheckFlip(g, i) {
+    if (g.flipped[i]) return false;
+    if (solveHand(g.hands[i], i + 3).penalty !== 0) return false;
+    g.flipped[i] = true;
+    return true;
+  }
+  // Fin de tour : victoire, défaite (pioche vide) ou pioche automatique de la carte suivante.
+  function soloAfterTurn(g) {
+    g.target = -1; g.drawn = null; g.placed = null;
+    if (g.flipped.every(Boolean)) { g.over = true; g.won = true; g.phase = 'won'; }
+    else if (!g.deck.length) { g.over = true; g.won = false; g.phase = 'lost'; }
+    else { g.drawn = g.deck.pop(); g.phase = 'place'; }
+  }
+  function soloPlace(g, i) {
+    if (g.phase !== 'place' || !g.drawn || i < 0 || i > 10 || g.flipped[i]) return false;
+    g.hands[i].push(g.drawn);
+    g.placed = g.drawn; g.drawn = null; g.target = i; g.phase = 'discard';
+    return true;
+  }
+  function soloUndo(g) {
+    if (g.phase !== 'discard' || !g.placed) return false;
+    var hand = g.hands[g.target];
+    for (var k = 0; k < hand.length; k++) {
+      if (hand[k].id === g.placed.id) { g.drawn = hand.splice(k, 1)[0]; break; }
+    }
+    g.placed = null; g.target = -1; g.phase = 'place';
+    return true;
+  }
+  function soloDiscard(g, id) {
+    if (g.phase !== 'discard') return null;
+    var t = g.target, hand = g.hands[t], k = -1, i;
+    for (i = 0; i < hand.length; i++) if (hand[i].id === id) { k = i; break; }
+    if (k < 0) return null;
+    var card = hand.splice(k, 1)[0];
+    g.discard.push(card); g.turns++;
+    var flippedNow = soloCheckFlip(g, t);
+    soloAfterTurn(g);
+    return { card: card, hand: t, flipped: flippedNow };
+  }
+  // Raccourci : défausser directement la carte piochée (= la placer puis la défausser aussitôt).
+  function soloPass(g) {
+    if (g.phase !== 'place' || !g.drawn) return null;
+    var card = g.drawn;
+    g.discard.push(card); g.turns++;
+    soloAfterTurn(g);
+    return { card: card, hand: -1, flipped: false };
+  }
+  // Conseil : dans une main de n+1 cartes, la défausse qui laisse le moins de points isolés
+  // (puis la meilleure synergie, puis la carte la plus lourde). Renvoie { card, penalty, sol }.
+  function soloAdvice(hand, wr) {
+    var seen = {}, best = null, i;
+    for (i = 0; i < hand.length; i++) {
+      var c = hand[i], sig = c.suit + ':' + c.rank;
+      if (seen[sig]) continue;
+      seen[sig] = 1;
+      var rest = hand.filter(function (_, j) { return j !== i; });
+      var sol = solveHand(rest, wr), syn = synergy(sol.rest, rest, wr);
+      var better = !best || sol.penalty < best.penalty ||
+        (sol.penalty === best.penalty && (syn > best.syn + 1e-9 ||
+          (Math.abs(syn - best.syn) < 1e-9 && points(c, wr) > points(best.card, wr))));
+      if (better) best = { card: c, penalty: sol.penalty, syn: syn, sol: sol };
+    }
+    return best;
+  }
+
   var api = {
     SUITS: SUITS, rankLabel: rankLabel, cardName: cardName, makeDeck: makeDeck, shuffle: shuffle,
     isWild: isWild, points: points, solveHand: solveHand, bestDiscard: bestDiscard, aiDraw: aiDraw,
     newGame: newGame, startRound: startRound, draw: draw, discard: discard, endRound: endRound,
-    nextRound: nextRound, botPlay: botPlay
+    nextRound: nextRound, botPlay: botPlay,
+    newSolitaire: newSolitaire, soloPlace: soloPlace, soloUndo: soloUndo, soloDiscard: soloDiscard,
+    soloPass: soloPass, soloAdvice: soloAdvice
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Engine = api;

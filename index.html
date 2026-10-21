@@ -178,6 +178,42 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
 #duoRound .half.top{transform:rotate(180deg)}
 #duoRound .dlg{width:min(94vw,520px);max-height:none}
 .totline{text-align:center;color:var(--muted)}.totline b{color:var(--gold)}
+/* ---------- Variante solitaire ---------- */
+#seul{flex:1;display:flex;flex-direction:column;min-height:0}
+.stable{display:flex;justify-content:center;align-items:flex-end;gap:22px;padding:4px 0 2px}
+.stable .slot .lbl{display:block;margin-top:5px;font-size:12px;color:var(--muted)}
+.stable .slot.drawn .lbl{color:var(--gold);font-weight:700}
+.shands{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 10px 10px;display:flex;flex-direction:column;gap:8px}
+.htile{border:1.5px solid rgba(255,255,255,.16);border-radius:14px;padding:7px 10px 9px;background:rgba(0,0,0,.2);transition:.15s;flex:none}
+.htile .hh{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:13px;color:var(--muted)}
+.htile .hh b{color:var(--cream);font-size:14px;white-space:nowrap}
+.htile .hh .st{margin-left:auto;font-weight:700;text-align:right}
+.htile .hh .st.ok{color:#7fe3a6}
+.htile .hh .st.gold{color:var(--gold)}
+.wildbadge.sm{padding:2px 8px;font-size:12px}
+.htile .cards{display:flex;flex-wrap:wrap;gap:12px 6px;align-items:flex-end;padding-top:10px}
+.htile.can{cursor:pointer;border-color:rgba(231,193,90,.5)}
+.htile.can:active{background:rgba(231,193,90,.12)}
+.htile.flip{border-color:var(--gold);box-shadow:0 0 0 3px rgba(231,193,90,.3)}
+.htile.target{border-color:var(--gold);background:rgba(231,193,90,.08)}
+.htile.done{border-color:rgba(127,227,166,.5);background:rgba(127,227,166,.07)}
+.htile.done .cards{padding-top:2px}
+.group.out.small{padding:3px 4px}
+.group.out.small .card{margin-left:0}
+.sbtns{display:flex;gap:8px;padding:8px 14px 12px}
+.sbtns .btn{max-width:none;padding:13px 12px;font-size:16px}
+.sbtns #sUndo{flex:0 0 34%}
+.sbtns #sAction{flex:1}
+@media (min-height:760px){.stable{--cw:54px;--ch:78px}}
+@media (min-width:700px){
+  .htile .group.small .card{--cw:46px;--ch:66px}
+  .htile .group.small .card .tl{font-size:15px}
+  .htile .group.small .card .tl span{font-size:13px}
+  .htile .group.small .card .mid{font-size:25px;bottom:6px}
+  .htile .group.small .card.joker .tl{font-size:9px}
+  .htile .group.small .card.joker .mid{font-size:30px;bottom:9px}
+}
+@media (min-width:900px){.shands{display:grid;grid-template-columns:1fr 1fr;align-content:start}}
 @media (min-width:700px){
   #duo .seat{--cw:72px;--ch:104px}
   #duo .seat .card .tl{font-size:20px}#duo .seat .card .tl span{font-size:17px}#duo .seat .card .mid{font-size:36px;bottom:9px}
@@ -202,6 +238,7 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
         <button data-m="solo" class="on"><b>Contre l'ordinateur</b><small>1 à 3 adversaires</small></button>
         <button data-m="passe"><b>À deux, on se passe l'appareil</b><small>Un écran masque la main entre les tours</small></button>
         <button data-m="duo"><b>À deux, face à face</b><small>iPad posé à plat, chacun de son côté</small></button>
+        <button data-m="seul"><b>Seul, variante solitaire</b><small>11 mains étalées, 28 cartes à piocher</small></button>
       </div>
     </div>
     <div class="panel" id="optSolo">
@@ -245,6 +282,25 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
       <div class="hand" id="hand"></div>
     </div>
     <div class="actions"><button class="btn gold" id="btnAction" disabled>…</button></div>
+  </section>
+
+  <!-- ===== Variante solitaire ===== -->
+  <section id="seul" hidden>
+    <div class="topbar">
+      <div class="round"><b class="serif">Solitaire</b><small id="sSub"></small></div>
+      <button class="iconbtn" id="btnMenuSeul" aria-label="Menu">⋯</button>
+    </div>
+    <div class="stable">
+      <div class="pile slot"><div id="sDeck"></div><span class="lbl">Pioche</span></div>
+      <div class="pile slot drawn"><div id="sDrawn"></div><span class="lbl" id="sDrawnLbl">Carte piochée</span></div>
+      <div class="pile slot"><div id="sDisc"></div><span class="lbl">Défausse</span></div>
+    </div>
+    <div class="msg" id="sMsg"></div>
+    <div class="shands" id="sHands"></div>
+    <div class="sbtns">
+      <button class="btn ghost" id="sUndo" hidden>↩ Annuler</button>
+      <button class="btn gold" id="sAction" disabled>…</button>
+    </div>
   </section>
 
   <!-- ===== Face à face (iPad) ===== -->
@@ -302,6 +358,12 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
   <p>Tu sors quand toutes tes cartes (après ta défausse) sont rangées en combinaisons. La manche s'arrête après un dernier tour pour chaque autre joueur.</p>
   <h4>Points</h4>
   <p>Les cartes qui ne sont dans aucune combinaison comptent : valeur de la carte (3 à 10), V = 11, D = 12, R = 13, joker de la manche = 20, joker = 50. Celui qui sort marque 0.</p>
+  <h4>Variante solitaire</h4>
+  <ul><li>11 mains étalées face visible : 3 cartes, 4 cartes… 13 cartes. L'atout de chaque main est égal à son nombre de cartes (3 pour la main de 3, 4 pour la main de 4… R pour la main de 13). Les 28 cartes restantes forment la pioche.</li>
+  <li>À chaque tour, la carte du dessus de la pioche est révélée : tu la places dans la main de ton choix, puis tu défausses une carte de cette main (la carte placée comprise). Une carte défaussée ne revient jamais. Impossible de déplacer des cartes d'une main à l'autre.</li>
+  <li>Dès que toutes les cartes d'une main sont rangées en brelans ou suites, la main est retournée : elle est terminée.</li>
+  <li>Tu gagnes quand les 11 mains sont retournées. Tu perds si la pioche s'épuise avant.</li>
+  <li>Le bouton « Défausser sans la jouer » écarte directement la carte révélée (comme la placer puis la défausser aussitôt).</li></ul>
   <button class="btn gold" data-close>Compris</button>
 </div></dialog>
 

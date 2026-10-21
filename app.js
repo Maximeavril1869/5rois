@@ -1,6 +1,6 @@
 /* 5 Rois — interface. Tout est local : la partie est sauvegardée dans le navigateur (localStorage).
-   Trois modes : contre l'ordinateur ('solo'), à deux en se passant l'appareil ('passe'),
-   à deux face à face sur un iPad posé à plat ('duo'). */
+   Quatre modes : contre l'ordinateur ('solo'), à deux en se passant l'appareil ('passe'),
+   à deux face à face sur un iPad posé à plat ('duo'), et la variante solitaire à une personne ('seul'). */
 (function () {
   'use strict';
   var E = window.Engine;
@@ -12,6 +12,7 @@
   var running = false;       // boucle des adversaires en cours
   var reveal = [false, false]; // mode face à face : main visible ou cachée par siège
   var lastNewId = null;
+  var seulHints = null;      // variante solitaire : pénalité atteignable par main avec la carte révélée
   var prefs = { aide: true, opp: 2, mode: 'solo', n1: 'Joueur 1', n2: 'Joueur 2' };
 
   function $(id) { return document.getElementById(id); }
@@ -29,7 +30,7 @@
       var p = JSON.parse(localStorage.getItem(PREF_KEY));
       if (p) {
         prefs.aide = p.aide !== false; prefs.opp = p.opp || 2;
-        if (p.mode === 'passe' || p.mode === 'duo') prefs.mode = p.mode;
+        if (p.mode === 'passe' || p.mode === 'duo' || p.mode === 'seul') prefs.mode = p.mode;
         if (p.n1) prefs.n1 = p.n1; if (p.n2) prefs.n2 = p.n2;
       }
     } catch (e) {}
@@ -39,8 +40,9 @@
   function cardHTML(c, o) {
     o = o || {};
     var cls = ['card'];
+    var wr = o.wr !== undefined ? o.wr : G.wild;   // valeur de joker de la manche (propre à chaque main en solitaire)
     if (c.rank === 0) cls.push('joker');
-    if (E.isWild(c, G.wild)) cls.push('wild');
+    if (E.isWild(c, wr)) cls.push('wild');
     if (o.sel) cls.push('sel');
     if (o.sug) cls.push('sug');
     if (o.lock) cls.push('lock');
@@ -58,9 +60,10 @@
     }
     return '<div class="' + cls.join(' ') + '" data-id="' + c.id + '">' + inner + '</div>';
   }
-  function sortHand(cards) {
+  function sortHand(cards, wr) {
+    if (wr === undefined) wr = G.wild;
     return cards.slice().sort(function (a, b) {
-      var wa = E.isWild(a, G.wild) ? 1 : 0, wb = E.isWild(b, G.wild) ? 1 : 0;
+      var wa = E.isWild(a, wr) ? 1 : 0, wb = E.isWild(b, wr) ? 1 : 0;
       if (wa !== wb) return wa - wb;
       if (a.suit !== b.suit) return a.suit - b.suit;
       return a.rank - b.rank;
@@ -219,7 +222,168 @@
 
   function renderAll() {
     if (!G) return;
-    if (mode() === 'duo') renderDuo(); else renderSolo();
+    if (mode() === 'seul') renderSeul();
+    else if (mode() === 'duo') renderDuo();
+    else renderSolo();
+  }
+
+  /* ---------- Variante solitaire ---------- */
+  // Aide : pour chaque main non retournée, points isolés atteignables si on y place la carte révélée.
+  function seulHintsFor() {
+    if (!prefs.aide || G.phase !== 'place' || !G.drawn) return null;
+    if (seulHints && seulHints.id === G.drawn.id && seulHints.turn === G.turns) return seulHints.v;
+    var v = [];
+    for (var i = 0; i < 11; i++) {
+      if (G.flipped[i]) { v.push(null); continue; }
+      var cur = E.solveHand(G.hands[i], i + 3).penalty;
+      var adv = E.soloAdvice(G.hands[i].concat([G.drawn]), i + 3);
+      v.push({ cur: cur, next: adv.penalty });
+    }
+    seulHints = { id: G.drawn.id, turn: G.turns, v: v };
+    return v;
+  }
+  function plural(n, one, many) { return n + ' ' + (n > 1 ? many : one); }
+
+  function seulTile(i, hints) {
+    var hand = G.hands[i], wr = i + 3, done = G.flipped[i];
+    var isT = G.phase === 'discard' && G.target === i;
+    var canPlace = G.phase === 'place' && !done && !G.over;
+    var hint = hints ? hints[i] : null;
+    var cls = 'htile' + (done ? ' done' : '') + (isT ? ' target' : '') + (canPlace ? ' can' : '');
+    if (canPlace && hint && hint.next === 0) cls += ' flip';
+
+    var selCard = null, sug = null, st = '';
+    if (isT) {
+      hand.forEach(function (c) { if (c.id === selected) selCard = c; });
+      if (!selCard) selected = null;
+      if (prefs.aide) sug = E.soloAdvice(hand, wr).card.id;
+    }
+    var base = selCard ? hand.filter(function (c) { return c !== selCard; }) : hand;
+    var layout;
+    if (done || prefs.aide) {
+      var sol = E.solveHand(base, wr);
+      layout = { groups: sol.groups, rest: sortHand(sol.rest, wr), penalty: sol.penalty };
+    } else {
+      layout = { groups: [], rest: sortHand(base, wr), penalty: null };
+    }
+
+    if (done) st = '<span class="st ok">✓ retournée</span>';
+    else if (isT) {
+      if (prefs.aide && selCard) st = layout.penalty === 0 ? '<span class="st gold">Se retourne !</span>' : '<span class="st">il resterait ' + layout.penalty + ' pts</span>';
+      else if (prefs.aide) st = '<span class="st">point doré : conseil</span>';
+    } else if (canPlace && hint) {
+      st = hint.next === 0 ? '<span class="st gold">Se retourne !</span>' : '<span class="st">' + hint.cur + ' → ' + hint.next + ' pts</span>';
+    } else if (prefs.aide) st = '<span class="st">isolées : ' + layout.penalty + ' pts</span>';
+
+    function copt(c) { return { wr: wr, sel: isT && c.id === selected, sug: c.id === sug, pop: c.id === lastNewId }; }
+    var h = '<div class="' + cls + '" data-h="' + i + '"><div class="hh"><b>' + (i + 3) + ' cartes</b>' +
+            '<span class="wildbadge sm">♛ ' + E.rankLabel(wr) + ' = joker</span>' + st + '</div><div class="cards">';
+    layout.groups.forEach(function (g) {
+      h += '<div class="group small ' + g.kind + '">';
+      g.cards.forEach(function (c) { h += cardHTML(c, copt(c)); });
+      h += '</div>';
+    });
+    if (layout.rest.length) {
+      h += '<div class="group rest small">';
+      layout.rest.forEach(function (c) { h += cardHTML(c, copt(c)); });
+      h += '</div>';
+    }
+    if (selCard) h += '<div class="group out small">' + cardHTML(selCard, copt(selCard)) + '</div>';
+    return h + '</div></div>';
+  }
+
+  function renderSeul() {
+    var nFlip = G.flipped.filter(Boolean).length;
+    $('sSub').textContent = nFlip + ' / 11 mains retournées · pioche : ' + G.deck.length;
+
+    // table : pioche, carte révélée, défausse
+    $('sDeck').innerHTML = G.deck.length ? '<div class="cardback"></div><span class="count">' + G.deck.length + '</span>' : '<div class="emptyslot"></div>';
+    if (G.drawn) { $('sDrawn').innerHTML = cardHTML(G.drawn, { wr: null, pop: G.drawn.id === lastNewId }); $('sDrawnLbl').textContent = 'Carte révélée'; }
+    else { $('sDrawn').innerHTML = '<div class="emptyslot"></div>'; $('sDrawnLbl').textContent = G.phase === 'discard' ? 'Carte placée' : ''; }
+    var top = G.discard[G.discard.length - 1];
+    $('sDisc').innerHTML = top ? cardHTML(top, { wr: null }) + '<span class="count">' + G.discard.length + '</span>' : '<div class="emptyslot"></div>';
+
+    // message
+    var msg, alert = false, t = G.target;
+    if (G.over) { msg = G.won ? 'Gagné ! Les 11 mains sont retournées.' : 'Perdu : la pioche est épuisée.'; alert = true; }
+    else if (G.phase === 'place') {
+      msg = (G.last ? G.last + ' ' : '') + 'Touche la main où placer ' + E.cardName(G.drawn) + '.';
+      alert = /retournée/.test(G.last || '');
+    } else msg = 'Main de ' + (t + 3) + ' cartes : choisis la carte à défausser.';
+    $('sMsg').textContent = msg; $('sMsg').className = 'msg' + (alert ? ' alert' : '');
+
+    // mains (on conserve la position de défilement)
+    var hints = seulHintsFor(), box = $('sHands'), y = box.scrollTop, h = '';
+    for (var i = 0; i < 11; i++) h += seulTile(i, hints);
+    box.innerHTML = h;
+    box.scrollTop = y;
+
+    // boutons
+    var act = $('sAction'), undo = $('sUndo');
+    undo.hidden = G.phase !== 'discard';
+    act.className = 'btn gold'; act.disabled = false;
+    if (G.over) { act.textContent = 'Voir le résultat'; }
+    else if (G.phase === 'place') {
+      act.className = 'btn ghost';
+      act.textContent = 'Défausser ' + E.cardName(G.drawn) + ' sans la jouer';
+    } else {
+      var card = null;
+      G.hands[t].forEach(function (c) { if (c.id === selected) card = c; });
+      if (!card) { act.textContent = 'Choisis une carte'; act.disabled = true; }
+      else {
+        var rest = G.hands[t].filter(function (c) { return c !== card; });
+        var out = E.solveHand(rest, t + 3).penalty === 0;
+        act.textContent = out ? 'Retourner la main en défaussant ' + E.cardName(card) : 'Défausser ' + E.cardName(card);
+      }
+    }
+  }
+
+  function seulEndHTML() {
+    var n = G.flipped.filter(Boolean).length;
+    var h = '<h2 class="serif">' + (G.won ? 'Gagné !' : 'Perdu') + '</h2>';
+    if (G.won) h += '<p>Les 11 mains sont retournées en ' + G.turns + ' tours.</p>';
+    else {
+      var left = [];
+      G.flipped.forEach(function (f, i) { if (!f) left.push(i + 3); });
+      h += '<p>La pioche est épuisée : ' + plural(n, 'main retournée', 'mains retournées') + ' sur 11.</p>' +
+           '<p>Mains restantes : ' + left.join(', ') + ' cartes.</p>';
+    }
+    return h + '<button class="btn gold js-again">Nouvelle partie</button><button class="btn ghost js-home">Accueil</button>';
+  }
+  function showEndSeul() {
+    if (!G || !G.over || mode() !== 'seul') return;
+    $('roundBody').innerHTML = seulEndHTML();
+    if (!$('dlgRound').open) $('dlgRound').showModal();
+  }
+
+  function seulPlace(i) {
+    if (!G || G.over || G.phase !== 'place' || G.flipped[i]) return;
+    var id = G.drawn.id;
+    if (!E.soloPlace(G, i)) return;
+    selected = null; lastNewId = id; G.last = '';
+    save(); renderAll(); lastNewId = null;
+    var tile = $('sHands').querySelector('.htile[data-h="' + i + '"]');
+    if (tile && tile.scrollIntoView) tile.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  function seulDiscard() {
+    if (!G || G.over || G.phase !== 'discard' || selected == null) return;
+    var r = E.soloDiscard(G, selected);
+    if (!r) return;
+    selected = null;
+    G.last = r.flipped ? 'Main de ' + (r.hand + 3) + ' cartes retournée !'
+                       : 'Tu as défaussé ' + E.cardName(r.card) + '.';
+    lastNewId = G.drawn ? G.drawn.id : null;
+    save(); renderAll(); lastNewId = null;
+    if (G.over) setTimeout(showEndSeul, 700);
+  }
+  function seulPass() {
+    if (!G || G.over || G.phase !== 'place') return;
+    var r = E.soloPass(G);
+    if (!r) return;
+    selected = null; G.last = 'Tu as défaussé ' + E.cardName(r.card) + '.';
+    lastNewId = G.drawn ? G.drawn.id : null;
+    save(); renderAll(); lastNewId = null;
+    if (G.over) setTimeout(showEndSeul, 700);
   }
 
   /* ---------- Actions ---------- */
@@ -248,6 +412,7 @@
     afterMove();
   }
   function afterMove() {
+    if (mode() === 'seul') return;
     if (G.roundEnded) { setTimeout(showRound, 700); return; }
     tick();
   }
@@ -270,7 +435,7 @@
     return nm + (r.src === 'discard' ? ' a pris ' + E.cardName(r.drawn) + ' dans la défausse' : ' a pioché') + ' et défaussé ' + E.cardName(r.discarded) + '.';
   }
   async function tick() {
-    if (running || !G) return;
+    if (running || !G || mode() === 'seul') return;
     running = true;
     try {
       while (G && !G.roundEnded && !G.human[G.turn]) {
@@ -357,17 +522,25 @@
   /* ---------- Navigation ---------- */
   function showGame() {
     $('home').hidden = true;
-    $('game').hidden = mode() === 'duo';
+    $('game').hidden = mode() === 'duo' || mode() === 'seul';
     $('duo').hidden = mode() !== 'duo';
+    $('seul').hidden = mode() !== 'seul';
   }
   function goHome() {
     if (G && G.over) clearSave();
-    G = null; selected = null;
-    $('game').hidden = true; $('duo').hidden = true; $('veil').hidden = true; $('duoRound').hidden = true;
+    G = null; selected = null; seulHints = null;
+    $('game').hidden = true; $('duo').hidden = true; $('seul').hidden = true; $('veil').hidden = true; $('duoRound').hidden = true;
     $('home').hidden = false; refreshHome();
   }
   function startNew() {
     var names, human, i;
+    if (prefs.mode === 'seul') {
+      G = E.newSolitaire();
+      selected = null; seulHints = null;
+      save(); showGame(); renderAll();
+      if (G.over) showEndSeul();
+      return;
+    }
     if (prefs.mode === 'solo') {
       names = ['Toi']; human = [true];
       for (i = 0; i < prefs.opp; i++) { names.push(BOT_NAMES[i]); human.push(false); }
@@ -388,7 +561,7 @@
     document.querySelectorAll('#segOpp button').forEach(function (b) { b.classList.toggle('on', +b.dataset.n === prefs.opp); });
     document.querySelectorAll('#segMode button').forEach(function (b) { b.classList.toggle('on', b.dataset.m === prefs.mode); });
     $('optSolo').hidden = prefs.mode !== 'solo';
-    $('optNames').hidden = prefs.mode === 'solo';
+    $('optNames').hidden = prefs.mode !== 'passe' && prefs.mode !== 'duo';
     $('n1').value = prefs.n1; $('n2').value = prefs.n2;
     $('swAide').classList.toggle('on', prefs.aide);
     $('swAide2').classList.toggle('on', prefs.aide);
@@ -419,8 +592,9 @@
     };
     $('btnResume').onclick = function () {
       G = loadSave(); if (!G) return;
-      selected = null; reveal = [false, false];
+      selected = null; reveal = [false, false]; seulHints = null;
       showGame(); renderAll();
+      if (mode() === 'seul') { if (G.over) showEndSeul(); return; }
       if (G.roundEnded) showRound(); else tick();
     };
     $('btnRules').onclick = function () { $('dlgRules').showModal(); };
@@ -428,6 +602,7 @@
     $('btnScores').onclick = function () { showScores(false); };
     $('btnMenu').onclick = function () { $('dlgMenu').showModal(); };
     $('btnMenuDuo').onclick = function () { $('dlgMenu').showModal(); };
+    $('btnMenuSeul').onclick = function () { $('dlgMenu').showModal(); };
     $('btnQuit').onclick = function () { $('dlgMenu').close(); goHome(); };
     $('dlgScores').addEventListener('close', function () { this.style.transform = ''; });
     document.querySelectorAll('[data-close]').forEach(function (b) { b.onclick = function () { b.closest('dialog').close(); }; });
@@ -440,6 +615,31 @@
     $('hand').onclick = function (e) { onHandClick(e, viewer(), $('msg')); };
     $('btnAction').onclick = function () { if (G.roundEnded) showRound(); else humanDiscard(); };
     $('btnVeil').onclick = function () { G.veil = false; save(); renderAll(); };
+
+    // variante solitaire
+    $('sHands').onclick = function (e) {
+      if (!G || mode() !== 'seul' || G.over) return;
+      var tile = e.target.closest('.htile'); if (!tile) return;
+      var i = +tile.dataset.h;
+      if (G.phase === 'place') seulPlace(i);
+      else if (G.phase === 'discard' && i === G.target) {
+        var el = e.target.closest('.card'); if (!el) return;
+        var id = +el.dataset.id;
+        selected = (selected === id) ? null : id;
+        renderAll();
+      }
+    };
+    $('sAction').onclick = function () {
+      if (!G || mode() !== 'seul') return;
+      if (G.over) showEndSeul();
+      else if (G.phase === 'place') seulPass();
+      else seulDiscard();
+    };
+    $('sUndo').onclick = function () {
+      if (!G || mode() !== 'seul' || !E.soloUndo(G)) return;
+      selected = null; G.last = '';
+      save(); renderAll();
+    };
 
     // vue face à face (délégation sur chaque siège)
     [0, 1].forEach(function (p) {
@@ -468,7 +668,7 @@
     });
 
     document.addEventListener('visibilitychange', function () {
-      if (!document.hidden && G && !G.roundEnded && !G.human[G.turn]) tick();
+      if (!document.hidden && G && mode() !== 'seul' && !G.roundEnded && !G.human[G.turn]) tick();
     });
 
     refreshHome();
