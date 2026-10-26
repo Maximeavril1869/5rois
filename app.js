@@ -13,6 +13,7 @@
   var reveal = [false, false]; // mode face à face : main visible ou cachée par siège
   var lastNewId = null;
   var seulHints = null;      // variante solitaire : pénalité atteignable par main avec la carte révélée
+  var arrOn = {}, arrSel = {}; // rangement manuel : mode actif et première carte touchée, par joueur
   var prefs = { aide: true, opp: 2, mode: 'solo', n1: 'Joueur 1', n2: 'Joueur 2' };
 
   function $(id) { return document.getElementById(id); }
@@ -108,14 +109,65 @@
     $(ids.bdisc).classList.toggle('can', canDraw && !!top);
   }
 
-  // Remplit la main du joueur p. hidden = cartes face cachée.
-  function renderHandInto(p, handEl, infoEl, hidden) {
+  /* ---------- Rangement manuel : on touche deux cartes pour les échanger ---------- */
+  // Ordre personnalisé du joueur p (G.order[p] = liste d'identifiants), ou null si le tri est automatique.
+  function customOrder(p) {
+    var o = G.order && G.order[p];
+    if (!o) return null;
+    var hand = G.hands[p], byId = {}, res = [], seen = {};
+    hand.forEach(function (c) { byId[c.id] = c; });
+    o.forEach(function (id) { if (byId[id] && !seen[id]) { res.push(byId[id]); seen[id] = 1; } });
+    hand.forEach(function (c) { if (!seen[c.id]) res.push(c); });   // cartes piochées depuis : à la fin
+    G.order[p] = res.map(function (c) { return c.id; });
+    return res;
+  }
+  function initOrder(p) {                 // point de départ = ce que le joueur voit déjà
+    var hand = G.hands[p], list = [];
+    if (prefs.aide) {
+      var sol = E.solveHand(hand, G.wild);
+      sol.groups.forEach(function (g) { g.cards.forEach(function (c) { list.push(c); }); });
+      sortHand(sol.rest).forEach(function (c) { list.push(c); });
+    } else list = sortHand(hand);
+    return list.map(function (c) { return c.id; });
+  }
+  function toggleArrange(p) {
+    if (arrOn[p]) { arrOn[p] = false; arrSel[p] = null; renderAll(); return; }
+    if (!G.order) G.order = [];
+    if (!customOrder(p)) G.order[p] = initOrder(p);
+    arrOn[p] = true; arrSel[p] = null; selected = null;
+    save(); renderAll();
+  }
+  function autoSort(p) {
+    if (G.order) G.order[p] = null;
+    arrOn[p] = false; arrSel[p] = null;
+    save(); renderAll();
+  }
+  function arrangeTap(p, id) {
+    var cur = arrSel[p];
+    if (cur == null) { arrSel[p] = id; renderAll(); return; }
+    if (cur === id) { arrSel[p] = null; renderAll(); return; }
+    var o = G.order[p], a = o.indexOf(cur), b = o.indexOf(id);
+    if (a >= 0 && b >= 0) { o[a] = id; o[b] = cur; }
+    arrSel[p] = null;
+    save(); renderAll();
+  }
+
+  // Remplit la main du joueur p. hidden = cartes face cachée. bar = barre des boutons de rangement.
+  function renderHandInto(p, handEl, infoEl, hidden, bar) {
     var hand = G.hands[p], h = '', info = '', i;
     if (hidden) {
       for (i = 0; i < hand.length; i++) h += '<div class="cardback"></div>';
       handEl.innerHTML = '<div class="group rest">' + h + '</div>';
       infoEl.textContent = 'Main cachée';
+      if (bar) bar.hidden = true;
       return;
+    }
+    var cust = customOrder(p), arranging = !!arrOn[p] && !!cust;
+    if (bar) {
+      bar.hidden = !!G.roundEnded;
+      bar.querySelector('.js-arr').textContent = arranging ? '✓ Terminé' : '⇄ Ranger';
+      bar.querySelector('.js-arr').classList.toggle('on', arranging);
+      bar.querySelector('.js-auto').hidden = !cust;
     }
     var choosing = isTurnOf(p) && G.phase === 'discard';
     var sug = null, selCard = null, layout;
@@ -129,22 +181,33 @@
       layout = { groups: [], rest: sortHand(hand), penalty: null };
     }
     function opts(c) {
-      return { sel: choosing && c.id === selected, sug: c.id === sug, lock: choosing && c.id === G.noDiscard, pop: c.id === lastNewId };
+      return { sel: arranging ? c.id === arrSel[p] : choosing && c.id === selected, sug: !arranging && c.id === sug,
+               lock: choosing && c.id === G.noDiscard, pop: c.id === lastNewId };
     }
-    layout.groups.forEach(function (g) {
-      h += '<div class="group ' + g.kind + '">';
-      g.cards.forEach(function (c) { h += cardHTML(c, opts(c)); });
+    if (cust) {
+      // rangement personnalisé : les cartes restent dans l'ordre choisi, sans regroupement automatique
+      h = '<div class="group rest flat' + (arranging ? ' arr' : '') + '">';
+      cust.forEach(function (c) { h += cardHTML(c, opts(c)); });
       h += '</div>';
-    });
-    if (layout.rest.length) {
-      if (prefs.aide) h += '<div class="group rest">';
-      layout.rest.forEach(function (c) { h += cardHTML(c, opts(c)); });
-      if (prefs.aide) h += '</div>';
+    } else {
+      layout.groups.forEach(function (g) {
+        h += '<div class="group ' + g.kind + '">';
+        g.cards.forEach(function (c) { h += cardHTML(c, opts(c)); });
+        h += '</div>';
+      });
+      if (layout.rest.length) {
+        if (prefs.aide) h += '<div class="group rest">';
+        layout.rest.forEach(function (c) { h += cardHTML(c, opts(c)); });
+        if (prefs.aide) h += '</div>';
+      }
+      if (selCard) h += '<div class="group out">' + cardHTML(selCard, opts(selCard)) + '</div>';
     }
-    if (selCard) h += '<div class="group out">' + cardHTML(selCard, opts(selCard)) + '</div>';
     handEl.innerHTML = h;
 
-    if (prefs.aide) {
+    if (arranging) {
+      info = arrSel[p] != null ? 'Touche la carte avec laquelle l’échanger' : 'Touche deux cartes pour les échanger de place';
+      if (prefs.aide) info += ' · isolées : <b>' + E.solveHand(hand, G.wild).penalty + ' pts</b>';
+    } else if (prefs.aide) {
       if (choosing) {
         if (selCard) info = layout.penalty === 0 ? '<b>Tu peux sortir</b> en défaussant cette carte' : 'En défaussant cette carte, il te resterait <b>' + layout.penalty + ' pts</b>';
         else info = 'Le point doré marque la défausse conseillée';
@@ -188,7 +251,7 @@
     renderPiles({ deck: 'deckVisual', disc: 'discardVisual', bdeck: 'pileDeck', bdisc: 'pileDiscard' });
     var m = msgFor(v);
     $('msg').textContent = m.txt; $('msg').className = 'msg' + (m.alert ? ' alert' : '');
-    renderHandInto(v, $('hand'), $('handInfo'), veilOn());
+    renderHandInto(v, $('hand'), $('handInfo'), veilOn(), $('arrbar'));
     fillAction(v, $('btnAction'), false);
     // voile « passe l'appareil »
     var vl = veilOn();
@@ -214,7 +277,7 @@
       var m = msgFor(p), me = seat.querySelector('.msg');
       me.textContent = m.txt; me.className = 'msg' + (m.alert ? ' alert' : '');
       var hidden = !reveal[p];
-      renderHandInto(p, seat.querySelector('.hand'), seat.querySelector('.handinfo'), hidden);
+      renderHandInto(p, seat.querySelector('.hand'), seat.querySelector('.handinfo'), hidden, seat.querySelector('.arrbar'));
       seat.querySelector('.js-reveal').textContent = hidden ? '👁 Voir ma main' : '🙈 Cacher ma main';
       fillAction(p, seat.querySelector('.js-action'), hidden);
     }
@@ -421,8 +484,10 @@
 
   function onHandClick(e, p, msgEl) {
     var el = e.target.closest('.card'); if (!el) return;
-    if (!isTurnOf(p) || G.phase !== 'discard' || veilOn()) return;
+    if (veilOn() || G.roundEnded) return;
     if (mode() === 'duo' && !reveal[p]) return;
+    if (arrOn[p] && customOrder(p)) { arrangeTap(p, +el.dataset.id); return; }   // mode rangement : on échange
+    if (!isTurnOf(p) || G.phase !== 'discard') return;
     var id = +el.dataset.id;
     if (id === G.noDiscard) { flash(msgEl, 'Tu ne peux pas rejeter la carte que tu viens de prendre dans la défausse.'); return; }
     selected = (selected === id) ? null : id;
@@ -529,7 +594,7 @@
   }
   function goHome() {
     if (G && G.over) clearSave();
-    G = null; selected = null; seulHints = null;
+    G = null; selected = null; seulHints = null; arrOn = {}; arrSel = {};
     $('game').hidden = true; $('duo').hidden = true; $('seul').hidden = true; $('veil').hidden = true; $('duoRound').hidden = true;
     $('home').hidden = false; refreshHome();
   }
@@ -537,7 +602,7 @@
     var names, human, i;
     if (prefs.mode === 'seul') {
       G = E.newSolitaire();
-      selected = null; seulHints = null;
+      selected = null; seulHints = null; arrOn = {}; arrSel = {};
       save(); showGame(); renderAll();
       if (G.over) showEndSeul();
       return;
@@ -553,7 +618,7 @@
     G = E.newGame(names, human);
     G.mode = prefs.mode;
     G.veil = prefs.mode === 'passe';
-    selected = null; reveal = [false, false];
+    selected = null; reveal = [false, false]; arrOn = {}; arrSel = {};
     save(); showGame(); renderAll(); afterMove();
   }
   function refreshHome() {
@@ -593,7 +658,7 @@
     };
     $('btnResume').onclick = function () {
       G = loadSave(); if (!G) return;
-      selected = null; reveal = [false, false]; seulHints = null;
+      selected = null; reveal = [false, false]; seulHints = null; arrOn = {}; arrSel = {};
       showGame(); renderAll();
       if (mode() === 'seul') { if (G.over) showEndSeul(); return; }
       if (G.roundEnded) showRound(); else tick();
@@ -656,12 +721,20 @@
       };
     });
 
+    // boutons de rangement (vue normale et sièges du face à face)
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest('.js-arr, .js-auto');
+      if (!b || !G || mode() === 'seul' || G.roundEnded) return;
+      var seat = b.closest('.seat'), p = seat ? (seat.id === 'seat1' ? 1 : 0) : viewer();
+      if (b.classList.contains('js-arr')) toggleArrange(p); else autoSort(p);
+    });
+
     // boutons de fin de manche / de partie (dialogue et vue face à face)
     document.addEventListener('click', function (e) {
       var t = e.target.closest('.js-next, .js-again, .js-home');
       if (!t || !G) return;
       if (t.classList.contains('js-next')) {
-        closeRound(); E.nextRound(G); selected = null; reveal = [false, false];
+        closeRound(); E.nextRound(G); G.order = []; arrOn = {}; arrSel = {}; selected = null; reveal = [false, false];
         if (mode() === 'passe') G.veil = true;
         save(); renderAll(); afterMove();
       } else if (t.classList.contains('js-again')) { closeRound(); startNew(); }
