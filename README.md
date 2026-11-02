@@ -7,3 +7,8 @@ Rangement manuel : « ⇄ Ranger » puis on touche deux cartes pour les échange
 ## Variante solitaire
 
 11 mains étalées face visible (3 à 13 cartes), 28 cartes de pioche. À chaque tour : la carte du dessus est révélée, on la place dans une main, puis on défausse une carte de cette main. Une main entièrement rangée en brelans/suites est retournée. Gagné quand les 11 mains sont retournées, perdu si la pioche s'épuise avant.
+
+
+## Licence
+
+Tous droits réservés © Maximeavril1869. Code publié pour consultation uniquement ; toute réutilisation exige l'autorisation écrite de l'auteur. Voir le fichier `LICENSE`.
