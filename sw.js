@@ -1,6 +1,6 @@
 /* Service worker : met l'application en cache pour jouer hors ligne. */
-var CACHE = 'cinqrois-v5';
-var FILES = ['./', './index.html', './engine.js', './app.js', './manifest.webmanifest',
+var CACHE = 'cinqrois-v6';
+var FILES = ['./', './index.html', './engine.js', './en-ligne.js', './app.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
