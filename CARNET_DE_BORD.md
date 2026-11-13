@@ -37,7 +37,7 @@ Opérations :
 
 ## Version 8 (13/11/2026) — Plateau et mode facile
 
-Décisions de l'auteur : le plateau (iPad en affichage commun, personne ne joue dessus) est indispensable pour les jeux à main cachée ; quand il est branché, le téléphone cache la table commune et garde la main + ses boutons ; mode facile choisi à la création (entraînement à faire attention) : dernières cartes prises dans la défausse par chacun ; pas de mode facile pour 6 qui prend, mais pour Skyjo (à faire).
+Décisions de l'auteur : le plateau (iPad en affichage commun, personne ne joue dessus) est indispensable pour les jeux à main cachée ; quand il est branché, le téléphone cache la table commune et garde la main + ses boutons ; mode facile choisi à la création (entraînement à faire attention) : dernières cartes prises dans la défausse par chacun ; pas de mode facile pour 6 qui prend ni pour Skyjo (abandonné).
 
 Opérations :
 
