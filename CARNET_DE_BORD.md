@@ -5,12 +5,13 @@ Journal des opérations du projet, pour pouvoir le reprendre sans rien perdre. L
 ## État courant
 
 - Modes : contre l'ordinateur, **en ligne** (2 humains sur 2 appareils + ordinateurs), variante solitaire. Passe-passe et face à face supprimés (remplacés par l'en ligne).
-- Version 6. Testé en navigateur simulé uniquement ; le mode En ligne n'a pas encore été essayé sur de vrais appareils pour ce jeu (il l'a été pour Skyjo, avec la même brique `en-ligne.js`).
+- Version 8 (plateau + mode facile). Testé en navigateur simulé uniquement ; le mode En ligne n'a pas encore été essayé sur de vrais appareils pour ce jeu (il l'a été pour Skyjo, avec la même brique `en-ligne.js`).
 
 ## À faire
 
 - Essayer l'en ligne sur iPhone / iPad / téléphone Android et corriger ce qui sort des essais réels.
 - Le rangement manuel des cartes est perdu si on recharge la page en ligne (il est propre à l'appareil et non enregistré).
+- Essayer le plateau sur un vrai iPad avec deux téléphones, et vérifier que le vrai Supabase accepte la ligne `jeu = 'plateau'` (les téléphones gardent la table sinon).
 - Déployer ensuite l'en ligne dans les autres jeux (6 qui prend, Flip 7, Le Contrat, Bataille navale, EnqueteManoir).
 
 ## Historique avant 2026-11-12
@@ -33,3 +34,16 @@ Opérations :
 
 ## Version 7 (13/11/2026)
 - Service worker : les requêtes d'une autre origine (Supabase) ne passent plus par le cache (avant, une coupure réseau était masquée par une réponse mise en cache).
+
+## Version 8 (13/11/2026) — Plateau et mode facile
+
+Décisions de l'auteur : le plateau (iPad en affichage commun, personne ne joue dessus) est indispensable pour les jeux à main cachée ; quand il est branché, le téléphone cache la table commune et garde la main + ses boutons ; mode facile choisi à la création (entraînement à faire attention) : dernières cartes prises dans la défausse par chacun ; pas de mode facile pour 6 qui prend, mais pour Skyjo (à faire).
+
+Opérations :
+
+1. `engine.js` : `g.taken[p]` = dernière carte prise dans la défausse (remise à zéro à chaque manche).
+2. `index.html` : écran `#plateau`, bouton « Ouvrir comme plateau », interrupteur « Mode facile » (panneau En ligne), bouton « Afficher la table » (téléphone), styles `#game.notable`.
+3. `app.js` : plateau en lecture seule (`plStart…` : `plateauStart`, `plRender`, `plRemote`, `plStatus`, `plStop`) ; signe de vie dans une ligne séparée `jeu = 'plateau'` (`plBeat`) pour ne jamais entrer en conflit avec les coups ; détection côté téléphone (`platWatch`, `noTable`) ; `roundHTML(compact, view)` sans boutons pour le plateau ; `takenHTML` (mode facile) ; l'option `facile` survit à « Nouvelle partie ».
+4. Choix retenu : détection automatique + bouton de secours, sans signe de vie dans la ligne de la partie (la synchro par état complet fait gagner l'autre en cas de conflit : un plateau qui y écrirait ferait perdre des coups).
+5. Tests : 66 vérifications (29 nouvelles : plateau, masquage et retour de la table, plateau fermé sans prévenir puis rouvert (ligne réutilisée), fin de manche sur le plateau, mode facile de bout en bout). `solo_seul.py` inchangé et vert.
+6. `APP_VERSION` 8, cache `cinqrois-v8`.

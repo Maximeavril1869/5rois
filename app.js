@@ -1,12 +1,14 @@
 /* 5 Rois — interface. Tout est local : la partie est sauvegardée dans le navigateur (localStorage).
    Trois modes : contre l'ordinateur ('solo'), en ligne à deux sur deux appareils ('online'), et la variante
-   solitaire à une personne ('seul'). Le mode en ligne synchronise l'état complet via Supabase (voir en-ligne.js). */
+   solitaire à une personne ('seul'). Le mode en ligne synchronise l'état complet via Supabase (voir en-ligne.js).
+   Un « plateau » (iPad en affichage seul) peut se brancher sur une partie en ligne : les téléphones cachent alors la table commune. */
 (function () {
   'use strict';
   var E = window.Engine;
-  var SAVE_KEY = 'cinqrois_partie_v1', PREF_KEY = 'cinqrois_prefs_v1', OKEY = 'cinqrois_online_v1', APP_VERSION = '7';
+  var SAVE_KEY = 'cinqrois_partie_v1', PREF_KEY = 'cinqrois_prefs_v1', OKEY = 'cinqrois_online_v1', APP_VERSION = '8';
   var EL = window.EnLigne;
-  var ONL = null;            // partie en ligne : { id, me, version, dirty, pushing, status, watch, retry }
+  var ONL = null;            // partie en ligne : { id, me, version, dirty, pushing, status, watch, retry, plat }
+  var PL = null;             // plateau (affichage seul) : { id, version, watch, rowId, rowVer, timer, t2, busy }
   var BOT_NAMES = ['Camille', 'Hugo', 'Léa', 'Noé', 'Inès', 'Louis'];   // jusqu'à 6 adversaires (7 joueurs)
 
   var G = null;              // état de la partie (sérialisable)
@@ -15,7 +17,7 @@
   var lastNewId = null;
   var seulHints = null;      // variante solitaire : pénalité atteignable par main avec la carte révélée
   var arrOn = {}, arrSel = {}; // rangement manuel : mode actif et première carte touchée, par joueur
-  var prefs = { aide: true, opp: 2, mode: 'solo', n1: 'Joueur 1' };
+  var prefs = { aide: true, opp: 2, mode: 'solo', n1: 'Joueur 1', facile: false };
 
   function $(id) { return document.getElementById(id); }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -37,6 +39,7 @@
         prefs.aide = p.aide !== false; prefs.opp = Math.min(6, Math.max(1, p.opp || 2));
         if (p.mode === 'passe' || p.mode === 'duo') prefs.mode = 'online'; else if (p.mode === 'online' || p.mode === 'seul') prefs.mode = p.mode;
         if (p.n1) prefs.n1 = p.n1;
+        prefs.facile = p.facile === true;
       }
     } catch (e) {}
   }
@@ -53,6 +56,7 @@
     if (o.lock) cls.push('lock');
     if (o.pop) cls.push('pop');
     if (o.dual) cls.push('dual');
+    if (o.gone) cls.push('gone');
     var inner;
     if (c.rank === 0) {
       inner = '<div class="tl">JOKER</div><div class="mid">♛</div>';
@@ -103,6 +107,17 @@
     }
     return { txt: txt, alert: alert };
   }
+
+  // Mode facile : dernière carte prise dans la défausse par le joueur p (estompée si elle n'est plus dans sa main)
+  function takenHTML(p) {
+    if (!G || !G.facile) return '';
+    var c = G.taken && G.taken[p];
+    if (!c) return '<div class="taken">Prise : —</div>';
+    var gone = !G.hands[p].some(function (x) { return x.id === c.id; });
+    return '<div class="taken">Prise :' + cardHTML(c, { gone: gone }) + '</div>';
+  }
+  // Téléphone d'une partie en ligne dont un plateau est branché : la table commune est cachée (bouton de secours : « Afficher la table »)
+  function noTable() { return mode() === 'online' && !!ONL && !!ONL.plat && ONL.plat.present && !ONL.plat.override; }
 
   function renderPiles(ids) {
     var canDraw = canAct() && G.phase === 'draw';
@@ -224,7 +239,7 @@
     btn.disabled = true; btn.textContent = '…';
     if (G.roundEnded) { btn.textContent = 'Voir les résultats'; btn.disabled = false; return; }
     if (!isTurnOf(p)) { btn.textContent = 'Au tour de ' + G.names[G.turn] + '…'; return; }
-    if (G.phase === 'draw') { btn.textContent = 'Touche la pioche ou la défausse'; return; }
+    if (G.phase === 'draw') { btn.textContent = noTable() ? 'Pioche ou prends la défausse' : 'Touche la pioche ou la défausse'; return; }
     if (hidden) { btn.textContent = 'Affiche ta main pour choisir'; return; }
     var card = null;
     G.hands[p].forEach(function (c) { if (c.id === selected) card = c; });
@@ -248,11 +263,15 @@
       for (var k = 0; k < Math.min(n, 14); k++) fan += '<i></i>';
       h += '<div class="opp' + (G.turn === p && !G.roundEnded ? ' turn' : '') + '">' +
            '<div class="nm"><span>' + esc(G.names[p]) + '</span>' + (G.outBy === p ? '<span class="tag">SORTI</span>' : '') + '</div>' +
-           '<div class="sc">' + G.scores[p] + ' pts</div><div class="fan">' + fan + '</div></div>';
+           '<div class="sc">' + G.scores[p] + ' pts</div><div class="fan">' + fan + '</div>' + takenHTML(p) + '</div>';
     }
     $('opps').innerHTML = h;
     $('opps').className = 'opps' + (G.n > 4 ? ' many' : '');
     renderPiles({ deck: 'deckVisual', disc: 'discardVisual', bdeck: 'pileDeck', bdisc: 'pileDiscard' });
+    var nt = noTable(), plOn = !!(ONL && ONL.plat && ONL.plat.present && mode() === 'online');
+    $('game').classList.toggle('notable', nt);
+    $('btnTable').hidden = !plOn; $('btnTable').textContent = nt ? 'Afficher la table' : 'Masquer la table';
+    $('lblDeck').textContent = nt ? 'Piocher' : 'Pioche'; $('lblDisc').textContent = nt ? 'Prendre la défausse' : 'Défausse';
     var m = msgFor(v);
     $('msg').textContent = m.txt; $('msg').className = 'msg' + (m.alert ? ' alert' : '');
     renderHandInto(v, $('hand'), $('handInfo'), false, $('arrbar'));
@@ -510,7 +529,7 @@
     $('dlgScores').showModal();
   }
 
-  function roundHTML(compact) {
+  function roundHTML(compact, view) {      // view = affichage seul (plateau) : pas de boutons
     var h = '', p;
     if (G.over) {
       var order = G.scores.map(function (s, i) { return { s: s, i: i }; }).sort(function (a, b) { return a.s - b.s; });
@@ -524,7 +543,7 @@
       var tied = order.length > 1 && order[1].s === order[0].s;
       h += '<p>' + (tied ? 'Égalité !' : (mode() === 'solo' && G.human[w]) ? 'Bravo, tu gagnes la partie !' : esc(G.names[w]) + ' gagne la partie.') + '</p>';
       if (!compact) h += scoresTable();
-      h += '<button class="btn gold js-again">Nouvelle partie</button><button class="btn ghost js-home">Accueil</button>';
+      if (!view) h += '<button class="btn gold js-again">Nouvelle partie</button><button class="btn ghost js-home">Accueil</button>';
     } else {
       h += '<h2 class="serif">Manche ' + (G.round + 1) + ' terminée</h2>';
       G.results.forEach(function (r, q) {
@@ -536,7 +555,7 @@
       if (compact) {
         h += '<div class="totline">' + G.names.map(function (n, q) { return esc(n) + ' <b>' + G.scores[q] + '</b>'; }).join(' · ') + '</div>';
       } else h += scoresTable();
-      h += '<button class="btn gold js-next">Manche suivante</button>';
+      if (!view) h += '<button class="btn gold js-next">Manche suivante</button>';
     }
     return h;
   }
@@ -551,15 +570,17 @@
 
   /* ---------- Navigation ---------- */
   function showGame() {
-    $('home').hidden = true;
+    $('home').hidden = true; $('plateau').hidden = true;
     $('game').hidden = mode() === 'seul';
     $('seul').hidden = mode() !== 'seul';
   }
   function goHome() {
+    var wasPlateau = !!PL;
+    plStop();
     if (ONL) onlineStop();
-    else if (G && G.over) clearSave();
+    else if (!wasPlateau && G && G.over) clearSave();
     G = null; selected = null; seulHints = null; arrOn = {}; arrSel = {};
-    $('game').hidden = true; $('seul').hidden = true; closeRound();
+    $('game').hidden = true; $('seul').hidden = true; $('plateau').hidden = true; closeRound();
     $('home').hidden = false; refreshHome();
   }
   function startNew() {
@@ -589,6 +610,7 @@
     var onl = prefs.mode === 'online';
     $('optSolo').hidden = prefs.mode !== 'solo' && !onl;
     $('optNames').hidden = !onl;
+    $('optFacile').hidden = !onl; $('swFacile').classList.toggle('on', !!prefs.facile);
     $('onlinePanel').hidden = !onl;
     document.querySelector('#segOpp [data-n="0"]').hidden = !onl;
     document.querySelector('#segOpp [data-n="6"]').hidden = onl;
@@ -650,9 +672,10 @@
     ONL = { id: id, me: me, version: version, dirty: false, pushing: false, status: 'ok', watch: null, retry: null };
     setMap(id, me);
     ONL.watch = EL.surveiller(id, function () { return ONL ? ONL.version : 0; }, onRemote, onStatus);
+    platWatch(ONL);
   }
   function onlineStop() {
-    if (ONL) { if (ONL.watch) ONL.watch.stop(); clearTimeout(ONL.retry); }
+    if (ONL) { if (ONL.watch) ONL.watch.stop(); clearTimeout(ONL.retry); if (ONL.plat) { ONL.plat.stopped = true; clearTimeout(ONL.plat.timer); } }
     ONL = null;
     $('offbar').hidden = true; $('wait').hidden = true;
   }
@@ -715,14 +738,14 @@
     var nm = (prefs.n1 || '').trim() || 'Joueur 1', names = [nm, '…'], human = [true, true], i;
     for (i = 0; i < prefs.opp; i++) { names.push(BOT_NAMES[i]); human.push(false); }
     var g = E.newGame(names, human);
-    g.mode = 'online'; g.online = { uids: [EL.uid(), null], joined: false };
+    g.mode = 'online'; g.online = { uids: [EL.uid(), null], joined: false }; g.facile = !!prefs.facile;
     EL.creer('cinqrois', g, nm + ' · en attente').then(function (r) {
       G = g; onlineStart(r.id, 0, r.version); onlineShow();
     }).catch(olError);
   }
   function restartOnline() {       // « Nouvelle partie » en ligne : même code, mêmes joueurs, scores remis à zéro
-    var o = G.online, ng = E.newGame(G.names.slice(), G.human.slice());
-    G = ng; G.mode = 'online'; G.online = o; G.order = []; selected = null; arrOn = {}; arrSel = {};
+    var o = G.online, fc = !!G.facile, ng = E.newGame(G.names.slice(), G.human.slice());
+    G = ng; G.mode = 'online'; G.online = o; G.facile = fc; G.order = []; selected = null; arrOn = {}; arrSel = {};
     save(); onlineShow();
   }
   function seatFor(id, g) {
@@ -777,6 +800,130 @@
   });
   $('btnWaitHome').addEventListener('click', goHome);
 
+  /* ---------- Plateau : détection côté téléphone ---------- */
+  // Le plateau écrit régulièrement dans sa propre ligne (jeu « plateau », titre = code de la partie) : la ligne de la partie n'est
+  // jamais touchée, donc aucun conflit avec les coups. Le téléphone cache la table tant que cette ligne change (< 30 s), et la
+  // réaffiche seul si le plateau disparaît. Au 1er passage on note seulement la version : un reste d'une séance précédente ne compte pas.
+  function platPoll() { return window.PLATEAU_POLL != null ? window.PLATEAU_POLL : 5000; }
+  function platFresh() { return window.PLATEAU_FRESH != null ? window.PLATEAU_FRESH : 30000; }
+  function platBeatMs() { return window.PLATEAU_BEAT != null ? window.PLATEAU_BEAT : 10000; }
+  function platWatch(o) {
+    var P = o.plat = { present: false, override: false, ver: null, seen: 0, timer: null, stopped: false };
+    function next() { if (ONL === o && !P.stopped) P.timer = setTimeout(tick, platPoll()); }
+    function tick() {
+      if (ONL !== o || P.stopped) return;
+      clearTimeout(P.timer);
+      if (document.hidden || !G || !G.online || !G.online.joined) { next(); return; }
+      EL.liste('plateau').then(function (rows) {
+        if (ONL !== o || P.stopped) return;
+        var r = null, now = Date.now();
+        rows.forEach(function (x) { if (x.titre === o.id) r = x; });
+        if (!r) { P.ver = null; P.seen = 0; }
+        else if (P.ver == null) P.ver = r.version;
+        else if (r.version !== P.ver) { P.ver = r.version; P.seen = now; }
+        var pres = !!r && P.seen > 0 && now - P.seen < platFresh();
+        if (pres !== P.present) { P.present = pres; if (!pres) P.override = false; if (G) renderAll(); }
+      }).catch(function () { /* réseau : on garde l'état connu */ }).then(next);
+    }
+    tick();
+  }
+
+  /* ---------- Plateau : affichage seul (iPad commun) ---------- */
+  function plStop() {
+    var o = PL; if (!o) return;
+    if (o.watch) o.watch.stop();
+    clearInterval(o.timer); clearTimeout(o.t2);
+    if (o.rowId) EL.supprimer(o.rowId).catch(function () { /* tant pis : la ligne vieillira toute seule */ });
+    PL = null; $('offbar').hidden = true; $('offbar').textContent = OFF_TXT;
+  }
+  function plBeat() {
+    var o = PL; if (!o || o.busy) return;
+    o.busy = true;
+    var data = { code: o.id, t: Date.now() }, p;
+    if (o.rowId) {
+      p = EL.ecrire(o.rowId, o.rowVer, data, o.id).then(function (nv) {
+        if (nv) { o.rowVer = nv; return; }
+        return EL.lire(o.rowId).then(function (row) { if (row) o.rowVer = row.version; else o.rowId = null; });
+      });
+    } else {
+      p = EL.liste('plateau').then(function (rows) {
+        var r = null; rows.forEach(function (x) { if (x.titre === o.id) r = x; });
+        if (r) { o.rowId = r.id; o.rowVer = r.version; return; }
+        return EL.creer('plateau', data, o.id).then(function (x) { o.rowId = x.id; o.rowVer = x.version; });
+      });
+    }
+    p.catch(function () { /* hors ligne : le prochain battement réessaiera */ }).then(function () {
+      o.busy = false;
+      if (PL !== o && o.rowId) EL.supprimer(o.rowId).catch(function () {});
+    });
+  }
+  function plRender() {
+    if (!G) return;
+    var p, h = '';
+    if (!G.online || !G.online.joined) {
+      $('plTitle').textContent = 'Plateau · ' + PL.id; $('plSub').textContent = '5 Rois en ligne'; $('plWild').textContent = '';
+      $('plSeats').innerHTML = ''; $('plTable').style.display = 'none'; $('plResults').innerHTML = '';
+      $('plMsg').textContent = 'En attente des joueurs…';
+      return;
+    }
+    $('plTable').style.display = '';
+    $('plTitle').textContent = 'Manche ' + (G.round + 1) + ' / 11';
+    $('plSub').textContent = 'Plateau · ' + PL.id + ' · ' + G.cards + ' cartes' + (G.facile ? ' · mode facile' : '');
+    $('plWild').textContent = '♛ ' + E.rankLabel(G.wild) + ' = joker';
+    for (p = 0; p < G.n; p++) {
+      var n = G.hands[p].length, fan = '';
+      for (var k = 0; k < Math.min(n, 14); k++) fan += '<i></i>';
+      h += '<div class="opp' + (G.turn === p && !G.roundEnded ? ' turn' : '') + '">' +
+           '<div class="nm"><span>' + esc(G.names[p]) + '</span>' + (G.outBy === p ? '<span class="tag">SORTI</span>' : '') + '</div>' +
+           '<div class="sc">' + G.scores[p] + ' pts · ' + n + ' cartes</div><div class="fan">' + fan + '</div>' + takenHTML(p) + '</div>';
+    }
+    $('plSeats').innerHTML = h;
+    $('plDeck').innerHTML = '<div class="cardback"></div><span class="count">' + G.deck.length + '</span>';
+    var top = G.discard[G.discard.length - 1];
+    $('plDisc').innerHTML = top ? cardHTML(top) : '<div class="emptyslot"></div>';
+    var t;
+    if (G.over) t = 'Partie terminée';
+    else if (G.roundEnded) t = 'Manche terminée';
+    else {
+      t = 'Au tour de ' + G.names[G.turn] + ' · ' + (G.phase === 'draw' ? 'pioche ou prend la défausse' : 'défausse une carte');
+      if (G.outBy >= 0) t = G.names[G.outBy] + ' est sorti ! Dernier tour. ' + t;
+      if (G.last && !/annulée/.test(G.last)) t = G.last + ' ' + t;
+    }
+    $('plMsg').textContent = t; $('plMsg').className = 'msg' + (G.outBy >= 0 && !G.roundEnded ? ' alert' : '');
+    $('plResults').innerHTML = G.roundEnded ? roundHTML(false, true) : (G.history.length ? scoresTable() : '');
+  }
+  function plRemote() {
+    var o = PL; if (!o) return;
+    return EL.lire(o.id).then(function (row) {
+      if (PL !== o || !row || row.version <= o.version) return;
+      G = row.etat; o.version = row.version; plRender();
+    });
+  }
+  function plStatus(st) {
+    if (!PL) return;
+    if (st === 'supprimee') { goHome(); olMsg('Cette partie a été supprimée.'); return; }
+    if (st === 'auth') { goHome(); olError({ kind: 'auth' }); return; }
+    $('offbar').textContent = 'Hors ligne : le plateau se remettra à jour au retour du réseau';
+    $('offbar').hidden = st !== 'hors-ligne';
+  }
+  function plateauStart(code) {
+    code = (code || '').trim().toUpperCase();
+    if (code.length !== 4) { olMsg('Le code a 4 lettres.'); return; }
+    olMsg('');
+    EL.lire(code).then(function (row) {
+      if (!row || row.jeu !== 'cinqrois') { olMsg('Code inconnu.'); return; }
+      onlineStop(); plStop();
+      G = row.etat; selected = null;
+      var o = PL = { id: code, version: row.version, watch: null, rowId: null, rowVer: 0, timer: null, t2: null, busy: false };
+      $('home').hidden = true; $('game').hidden = true; $('seul').hidden = true; $('plateau').hidden = false;
+      plRender();
+      o.watch = EL.surveiller(code, function () { return PL ? PL.version : 0; }, plRemote, plStatus);
+      plBeat();
+      o.t2 = setTimeout(plBeat, 1500);
+      o.timer = setInterval(plBeat, platBeatMs());
+    }).catch(olError);
+  }
+
   /* ---------- Branchements ---------- */
   function bind() {
     loadPrefs();
@@ -789,6 +936,10 @@
     $('n1').oninput = function () { prefs.n1 = this.value.slice(0, 14); savePrefs(); };
     $('swAide').onclick = function () { setAide(!prefs.aide); };
     $('swAide2').onclick = function () { setAide(!prefs.aide); };
+    $('swFacile').onclick = function () { prefs.facile = !prefs.facile; savePrefs(); refreshHome(); };
+    $('btnOlPlateau').onclick = function () { plateauStart($('olCode').value); };
+    $('btnPlQuit').onclick = goHome;
+    $('btnTable').onclick = function () { if (ONL && ONL.plat) { ONL.plat.override = !ONL.plat.override; renderAll(); } };
     $('btnNew').onclick = function () {
       var s = loadSave();
       if (prefs.mode !== 'online' && s && !s.over && !confirm('Une partie est en cours. La remplacer par une nouvelle ?')) return;

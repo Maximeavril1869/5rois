@@ -213,6 +213,39 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
 .olitem .t{flex:1;min-width:0}.olitem .t b{letter-spacing:.15em}.olitem .t small{display:block;color:var(--muted)}
 .olitem button{padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.22);background:transparent;color:inherit;font-size:14px}
 .ver{margin:0;color:var(--muted);font-size:12px;opacity:.7}
+/* ---------- Plateau (affichage commun sur iPad) ---------- */
+.card.gone{opacity:.45}
+.taken{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--muted);min-height:38px}
+.taken .card{--cw:26px;--ch:37px;box-shadow:none;margin:0}
+.taken .card .tl{font-size:10px;top:2px;left:3px}.taken .card .tl span{font-size:9px}.taken .card .mid{font-size:13px;bottom:2px}
+.taken .card.joker .tl{font-size:6px}.taken .card.joker .mid{font-size:15px;bottom:3px}
+/* téléphone avec un plateau branché : plus de table commune, seulement la main et les boutons */
+#game.notable .opps{display:none}
+#game.notable .table{gap:12px;padding:10px 14px 4px;align-items:stretch}
+#game.notable .pile{flex:1;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.07);border-radius:14px;padding:16px 8px}
+#game.notable .pile>div{display:none}
+#game.notable .pile .lbl{margin:0;font-size:16px;font-weight:700;color:var(--cream)}
+#game.notable .pile:not(.can){opacity:.5}
+#game.notable .pile.can{border-color:var(--gold);background:rgba(231,193,90,.16)}
+#game.notable .pile.can .lbl{color:var(--gold)}
+#plateau{flex:1;display:flex;flex-direction:column;min-height:0;overflow-y:auto}
+#plSeats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;padding:4px 14px 8px}
+#plateau .opp{min-width:0}
+#plateau .opp .nm{font-size:20px}#plateau .opp .sc{font-size:15px}
+#plateau .opp .fan{height:36px;margin-top:8px}#plateau .opp .fan i{width:24px;height:36px;margin-left:-13px}
+#plateau .opp .fan i:first-child{margin-left:0}
+#plateau .taken{font-size:14px}
+#plateau .taken .card{--cw:40px;--ch:58px}
+#plateau .taken .card .tl{font-size:15px}#plateau .taken .card .tl span{font-size:12px}#plateau .taken .card .mid{font-size:22px;bottom:4px}
+#plateau .taken .card.joker .tl{font-size:8px}#plateau .taken .card.joker .mid{font-size:24px;bottom:6px}
+#plateau .table{--cw:84px;--ch:122px;gap:44px;padding:14px 0 6px}
+#plateau .table .card .tl{font-size:22px}#plateau .table .card .tl span{font-size:18px}#plateau .table .card .mid{font-size:38px;bottom:8px}
+#plateau .table .card.joker .tl{font-size:11px}#plateau .table .card.joker .mid{font-size:40px}
+#plateau .pile .lbl{font-size:15px}
+#plMsg{font-size:18px;min-height:46px}
+#plResults{padding:6px 14px 20px;max-width:780px;margin:0 auto;width:100%;display:flex;flex-direction:column;gap:10px}
+#plateau .minihand .card{--cw:40px;--ch:58px}
+#plateau .minihand .card .tl{font-size:15px}#plateau .minihand .card .tl span{font-size:12px}#plateau .minihand .card .mid{font-size:22px}
 </style>
 </head>
 <body>
@@ -241,6 +274,12 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
       <h3>Ton prénom</h3>
       <input id="n1" maxlength="14" autocomplete="off" aria-label="Ton prénom">
     </div>
+    <div class="panel" id="optFacile" hidden>
+      <div class="row">
+        <div style="text-align:left"><b>Mode facile</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Affiche la dernière carte prise dans la défausse par chacun. Se choisit à la création de la partie.</div></div>
+        <button class="switch" id="swFacile" aria-label="Mode facile"></button>
+      </div>
+    </div>
     <div class="panel" id="onlinePanel" hidden>
       <h3>Compte pour jouer en ligne</h3>
       <div id="olLogin">
@@ -252,6 +291,7 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
         <p class="olwho">Connecté : <b id="olWho"></b> <button class="linkbtn" id="btnOlLogout">Se déconnecter</button></p>
         <h3>Rejoindre une partie</h3>
         <div class="olrow"><input id="olCode" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="Code" aria-label="Code de la partie"><button class="btn ghost" id="btnOlJoin">Rejoindre</button></div>
+        <button class="linkbtn" id="btnOlPlateau">Ouvrir comme plateau (affichage seul, sans jouer)</button>
         <h3 style="margin-top:14px">Parties en cours</h3>
         <div id="olList"></div>
       </div>
@@ -279,16 +319,32 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
     </div>
     <div class="opps" id="opps"></div>
     <div class="table">
-      <button class="pile" id="pileDeck"><div id="deckVisual"></div><span class="lbl">Pioche</span></button>
-      <button class="pile" id="pileDiscard"><div id="discardVisual"></div><span class="lbl">Défausse</span></button>
+      <button class="pile" id="pileDeck"><div id="deckVisual"></div><span class="lbl" id="lblDeck">Pioche</span></button>
+      <button class="pile" id="pileDiscard"><div id="discardVisual"></div><span class="lbl" id="lblDisc">Défausse</span></button>
     </div>
     <div class="msg" id="msg"></div>
-    <div class="arrbar" id="arrbar"><button class="chip js-arr"></button><button class="chip js-auto" hidden>↺ Tri auto</button></div>
+    <div class="arrbar" id="arrbar"><button class="chip js-arr"></button><button class="chip js-auto" hidden>↺ Tri auto</button><button class="chip" id="btnTable" hidden>Afficher la table</button></div>
     <div class="handwrap">
       <div class="handinfo" id="handInfo"></div>
       <div class="hand" id="hand"></div>
     </div>
     <div class="actions"><button class="btn gold" id="btnAction" disabled>…</button></div>
+  </section>
+
+  <!-- ===== Plateau : affichage commun, personne ne joue dessus ===== -->
+  <section id="plateau" hidden>
+    <div class="topbar">
+      <div class="round"><b class="serif" id="plTitle"></b><small id="plSub"></small></div>
+      <span class="wildbadge" id="plWild"></span>
+      <button class="iconbtn" id="btnPlQuit" aria-label="Quitter le plateau">✕</button>
+    </div>
+    <div id="plSeats"></div>
+    <div class="table" id="plTable">
+      <div class="pile"><div id="plDeck"></div><span class="lbl">Pioche</span></div>
+      <div class="pile"><div id="plDisc"></div><span class="lbl">Défausse</span></div>
+    </div>
+    <div class="msg" id="plMsg"></div>
+    <div id="plResults"></div>
   </section>
 
   <!-- ===== Variante solitaire ===== -->

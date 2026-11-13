@@ -226,6 +226,7 @@
     g.outBy = -1; g.finalLeft = 0;
     g.roundEnded = false; g.results = null;
     g.last = '';
+    g.taken = [];          // dernière carte prise dans la défausse par chaque joueur (affichée en mode facile)
   }
   function reshuffle(g) {
     var top = g.discard.pop();
@@ -236,6 +237,8 @@
     var p = g.turn, card;
     if (src === 'discard' && g.discard.length) {
       card = g.discard.pop(); g.noDiscard = card.id;
+      if (!g.taken) g.taken = [];
+      g.taken[p] = card;
     } else {
       if (!g.deck.length) reshuffle(g);
       if (!g.deck.length) { card = g.discard.pop(); g.noDiscard = null; }
