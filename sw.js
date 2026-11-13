@@ -1,5 +1,5 @@
 /* Service worker : met l'application en cache pour jouer hors ligne. */
-var CACHE = 'cinqrois-v6';
+var CACHE = 'cinqrois-v7';
 var FILES = ['./', './index.html', './engine.js', './en-ligne.js', './app.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
@@ -13,6 +13,7 @@ self.addEventListener('activate', function (e) {
 });
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
+  if (new URL(e.request.url).origin !== self.location.origin) return;   // Supabase : jamais via le cache (une coupure réseau doit rester visible)
   e.respondWith(
     fetch(e.request).then(function (res) {
       var copy = res.clone();

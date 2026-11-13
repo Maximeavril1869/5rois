@@ -30,3 +30,6 @@ Opérations :
 5. Tests : `tests/e2e/en_ligne.py` (37 vérifications : connexion, code inconnu, 3e personne refusée, mains cachées, droits de jeu, hors ligne puis envoi, reprise, manche complète identique des deux côtés, « Manche suivante » pressé en même temps, suppression) et `tests/e2e/solo_seul.py` (solo et solitaire).
 6. Corrigé pendant les essais : attentes de test (3 cartes en manche 1), serveur de test qui servait un autre dépôt.
 7. Création de ce carnet et de `ARCHITECTURE.md`.
+
+## Version 7 (13/11/2026)
+- Service worker : les requêtes d'une autre origine (Supabase) ne passent plus par le cache (avant, une coupure réseau était masquée par une réponse mise en cache).
