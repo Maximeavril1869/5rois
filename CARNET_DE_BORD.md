@@ -5,7 +5,7 @@ Journal des opérations du projet, pour pouvoir le reprendre sans rien perdre. L
 ## État courant
 
 - Modes : contre l'ordinateur, **en ligne** (2 humains sur 2 appareils + ordinateurs), variante solitaire. Passe-passe et face à face supprimés (remplacés par l'en ligne).
-- Version 10 (aides réglables une à une ; plateau retiré en v9). Testé en navigateur simulé uniquement ; le mode En ligne n'a pas encore été essayé sur de vrais appareils pour ce jeu (il l'a été pour Skyjo, avec la même brique `en-ligne.js`).
+- Version 11 (correctif de cache après v10 ; aides réglables en v10 ; plateau retiré en v9). Testé en navigateur simulé uniquement ; le mode En ligne n'a pas encore été essayé sur de vrais appareils pour ce jeu (il l'a été pour Skyjo, avec la même brique `en-ligne.js`).
 
 ## À faire
 
@@ -72,3 +72,12 @@ Opérations :
 4. Tests : 71 vérifications (chaque option testée seule avec des mains fabriquées, état serveur en ligne, invité qui suit l'hôte, conversion d'une partie v9).
 5. Limite connue, documentée : avec le décompte actif, « 0 pt » trahit la sortie ; avec le regroupement actif, les groupes montrent où le joker sert.
 6. `APP_VERSION` 10, cache `cinqrois-v10`.
+
+## Version 11 (14/11/2026) — Correctif : page figée après la v10
+
+Constat de l'auteur sur son appareil après la v10 : boutons sans réaction, numéro de version absent. Non reproduit en test ; cause la plus probable : mélange d'un ancien `index.html` et du nouvel `app.js` (cache HTTP de GitHub Pages de 10 min + `cache.addAll` à l'installation du service worker), d'où une erreur au démarrage (`refreshHome` plante avant d'écrire la version). Cause non confirmée sur l'appareil.
+
+1. `index.html` : scripts versionnés `?v=11`.
+2. `sw.js` : installation avec `cache: 'reload'`, requêtes avec `cache: 'no-cache'`, fichiers `?v=11` dans `FILES`.
+3. Test : cohérence `APP_VERSION` / `?v=` / cache du service worker. `APP_VERSION` 11, cache `cinqrois-v11`.
+4. Si la page reste figée chez l'auteur : fermer complètement l'appli puis la rouvrir (deux fois) ; sinon vider les données du site (Réglages Safari) ou réinstaller l'icône.

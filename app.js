@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   var E = window.Engine;
-  var SAVE_KEY = 'cinqrois_partie_v1', PREF_KEY = 'cinqrois_prefs_v1', OKEY = 'cinqrois_online_v1', APP_VERSION = '10';
+  var SAVE_KEY = 'cinqrois_partie_v1', PREF_KEY = 'cinqrois_prefs_v1', OKEY = 'cinqrois_online_v1', APP_VERSION = '11';
   var EL = window.EnLigne;
   var ONL = null;            // partie en ligne : { id, me, version, dirty, pushing, status, watch, retry }
   var BOT_NAMES = ['Camille', 'Hugo', 'Léa', 'Noé', 'Inès', 'Louis'];   // jusqu'à 6 adversaires (7 joueurs)

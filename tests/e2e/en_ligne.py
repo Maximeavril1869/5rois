@@ -386,6 +386,11 @@ def main():
         db.click('#btnMenu')
         check('en ligne : aucun réglage d’aide dans le menu de partie', not db.is_visible('#swAide2'))
         check('aucune erreur JavaScript (aides en ligne)', not da.errors and not db.errors, da.errors + db.errors)
+        import re
+        idx = (ROOT / 'index.html').read_text(); sw = (ROOT / 'sw.js').read_text(); ap = (ROOT / 'app.js').read_text()
+        ver = re.search(r"APP_VERSION = '(\d+)'", ap).group(1)
+        check('les 3 scripts portent ?v=N, identique à APP_VERSION et au cache du service worker', all(('%s.js?v=%s' % (f, ver)) in idx and ("./%s.js?v=%s" % (f, ver)) in sw for f in ('engine', 'en-ligne', 'app')) and ("cinqrois-v" + ver) in sw)
+        check('le service worker revalide toujours (jamais le cache HTTP) et ne met pas Supabase en cache', "cache: 'no-cache'" in sw and "cache: 'reload'" in sw and 'origin !== self.location.origin' in sw)
         browser.close()
     failed = [n for n, ok in RESULTS if not ok]
     print('\n%d vérifications, %d échec(s)' % (len(RESULTS), len(failed)))

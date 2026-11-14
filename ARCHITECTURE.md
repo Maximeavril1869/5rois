@@ -59,3 +59,7 @@ Le plateau iPad (affichage commun, signe de vie `jeu = 'plateau'`) a été retir
 | `cinqrois_prefs_v1` | mode, nombre d'adversaires, aide, prénom |
 | `cinqrois_online_v1` | partie en ligne → siège de cet appareil |
 | `foyer_session_v1` | session de connexion (partagée entre les jeux) |
+
+## Livraison : ne jamais mélanger deux versions
+
+À chaque livraison, changer ensemble `APP_VERSION` (app.js), `CACHE` et la liste `FILES` (sw.js), et le `?v=N` des trois `<script>` (index.html) ; le test e2e le vérifie. Le service worker installe et revalide avec `cache: 'reload'` / `'no-cache'` pour contourner le cache HTTP de GitHub Pages (10 min), sinon un vieil `index.html` peut se retrouver avec un nouvel `app.js` (page figée : boutons sans réaction, numéro de version absent).
