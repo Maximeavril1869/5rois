@@ -24,7 +24,7 @@ body{background:radial-gradient(120% 80% at 50% 0%,var(--felt1),var(--felt2) 70%
 button{font:inherit;color:inherit}
 .serif{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif}
 #app{height:100dvh;display:flex;flex-direction:column;
-  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  padding:calc(env(safe-area-inset-top) + 14px) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
 [hidden]{display:none!important}
 
 /* ---------- Accueil ---------- */
@@ -393,8 +393,8 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
   <button class="btn gold" data-close>Retour à la partie</button>
 </div></dialog>
 
-<script src="engine.js?v=12"></script>
-<script src="en-ligne.js?v=12"></script>
-<script src="app.js?v=12"></script>
+<script src="engine.js?v=13"></script>
+<script src="en-ligne.js?v=13"></script>
+<script src="app.js?v=13"></script>
 </body>
 </html>

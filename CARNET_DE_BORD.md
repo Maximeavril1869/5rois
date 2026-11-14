@@ -86,3 +86,7 @@ Constat de l'auteur sur son appareil après la v10 : boutons sans réaction, num
 1. Constat : aucun débordement horizontal ; l'accueil était devenu trop long (panneau Aides) et « Nouvelle partie » sortait de l'écran.
 2. Panneau « Aides » replié par défaut (résumé « Aides · N sur 6 actives ») ; bouton « Nouvelle partie » collant en bas de l'écran.
 3. `APP_VERSION` 12, cache `cinqrois-v12`, scripts `?v=12`. Test e2e adapté (73 vérifications OK).
+
+## 2026-11-14 — v13 : en-tête flou en haut d'écran (iPhone, appli installée)
+1. Constat (capture de l'auteur) : « Manche 1 / 11 » et les boutons du haut paraissent flous/coupés en permanence. Rien dans le code ne floute ; cause probable non confirmée : effet de bord haut d'iOS sous la barre d'état.
+2. Essai : marge haute +14 px sous la zone sûre. `APP_VERSION` 13, cache `cinqrois-v13`.
