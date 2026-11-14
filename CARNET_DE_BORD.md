@@ -90,3 +90,8 @@ Constat de l'auteur sur son appareil après la v10 : boutons sans réaction, num
 ## 2026-11-14 — v13 : en-tête flou en haut d'écran (iPhone, appli installée)
 1. Constat (capture de l'auteur) : « Manche 1 / 11 » et les boutons du haut paraissent flous/coupés en permanence. Rien dans le code ne floute ; cause probable non confirmée : effet de bord haut d'iOS sous la barre d'état.
 2. Essai : marge haute +14 px sous la zone sûre. `APP_VERSION` 13, cache `cinqrois-v13`.
+
+## 2026-11-14 — v14 : barre d'état opaque (retour de v13 : haut encore légèrement flou)
+1. `apple-mobile-web-app-status-bar-style` passe de `black-translucent` à `default` ; marge +14 px retirée.
+2. Ce réglage n'est lu qu'à l'installation : supprimer l'icône de l'écran d'accueil puis la rajouter depuis Safari.
+3. `APP_VERSION` 14, cache `cinqrois-v14`.
