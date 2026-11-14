@@ -6,7 +6,7 @@
 (function () {
   'use strict';
   var E = window.Engine;
-  var SAVE_KEY = 'cinqrois_partie_v1', PREF_KEY = 'cinqrois_prefs_v1', OKEY = 'cinqrois_online_v1', APP_VERSION = '11';
+  var SAVE_KEY = 'cinqrois_partie_v1', PREF_KEY = 'cinqrois_prefs_v1', OKEY = 'cinqrois_online_v1', APP_VERSION = '12';
   var EL = window.EnLigne;
   var ONL = null;            // partie en ligne : { id, me, version, dirty, pushing, status, watch, retry }
   var BOT_NAMES = ['Camille', 'Hugo', 'Léa', 'Noé', 'Inès', 'Louis'];   // jusqu'à 6 adversaires (7 joueurs)
@@ -620,6 +620,7 @@
     $('optNames').hidden = !onl;
     $('optAides').hidden = prefs.mode === 'seul'; $('optAideSeul').hidden = prefs.mode !== 'seul';
     document.querySelectorAll('[data-opt]').forEach(function (b) { b.classList.toggle('on', !!prefs.opts[b.dataset.opt]); });
+    $('optAidesSum').textContent = 'Aides · ' + Object.keys(OPT_DEF).filter(function (k) { return prefs.opts[k]; }).length + ' sur 6 actives';
     $('onlinePanel').hidden = !onl;
     document.querySelector('#segOpp [data-n="0"]').hidden = !onl;
     document.querySelector('#segOpp [data-n="6"]').hidden = onl;

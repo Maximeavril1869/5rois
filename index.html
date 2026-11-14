@@ -33,6 +33,12 @@ button{font:inherit;color:inherit}
 #home h1{margin:0;font-size:44px;letter-spacing:.02em;color:var(--cream)}
 #home p.sub{margin:0;color:var(--muted);max-width:30ch;line-height:1.4}
 .panel{background:rgba(0,0,0,.22);border:1px solid rgba(231,193,90,.25);border-radius:16px;padding:14px 16px;width:100%;max-width:340px}
+.panel summary{cursor:pointer;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);list-style:none;padding:2px 0}
+.panel summary::-webkit-details-marker{display:none}
+.panel summary::after{content:' ▾';float:right}
+details.panel[open] summary{margin-bottom:10px}
+details.panel[open] summary::after{content:' ▴'}
+#btnNew{position:sticky;bottom:10px;z-index:5}
 .panel h3{margin:0 0 10px;font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .seg{display:flex;gap:8px}
 .seg button{flex:1;padding:11px 0;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:transparent;font-weight:600}
@@ -247,8 +253,8 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
       <h3>Ton prénom</h3>
       <input id="n1" maxlength="14" autocomplete="off" aria-label="Ton prénom">
     </div>
-    <div class="panel" id="optAides" hidden>
-      <h3>Aides</h3>
+    <details class="panel" id="optAides" hidden>
+      <summary id="optAidesSum">Aides</summary>
       <div class="row"><div style="text-align:left"><b>Aide au regroupement</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Montre tes combinaisons</div></div><button class="switch" data-opt="groupes" aria-label="Aide au regroupement"></button></div>
       <div class="row"><div style="text-align:left"><b>Décompte des points</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Points isolés de ta main</div></div><button class="switch" data-opt="points" aria-label="Décompte des points"></button></div>
       <div class="row"><div style="text-align:left"><b>Défausse conseillée</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Point doré sur la carte à défausser</div></div><button class="switch" data-opt="defausse" aria-label="Défausse conseillée"></button></div>
@@ -256,7 +262,7 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
       <div class="row"><div style="text-align:left"><b>Indice de sortie</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">« Tu peux sortir » et libellé du bouton</div></div><button class="switch" data-opt="sortie" aria-label="Indice de sortie"></button></div>
       <div class="row"><div style="text-align:left"><b>Dernières cartes prises</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Pour chaque adversaire, la dernière carte prise dans la défausse</div></div><button class="switch" data-opt="prises" aria-label="Dernières cartes prises"></button></div>
       <div style="color:var(--muted);font-size:12.5px;margin-top:8px">Réglé à la création de la partie ; en ligne, c'est l'hôte qui décide pour les deux joueurs.</div>
-    </div>
+    </details>
     <div class="panel" id="onlinePanel" hidden>
       <h3>Compte pour jouer en ligne</h3>
       <div id="olLogin">
@@ -387,8 +393,8 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
   <button class="btn gold" data-close>Retour à la partie</button>
 </div></dialog>
 
-<script src="engine.js?v=11"></script>
-<script src="en-ligne.js?v=11"></script>
-<script src="app.js?v=11"></script>
+<script src="engine.js?v=12"></script>
+<script src="en-ligne.js?v=12"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

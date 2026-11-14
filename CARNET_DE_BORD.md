@@ -81,3 +81,8 @@ Constat de l'auteur sur son appareil après la v10 : boutons sans réaction, num
 2. `sw.js` : installation avec `cache: 'reload'`, requêtes avec `cache: 'no-cache'`, fichiers `?v=11` dans `FILES`.
 3. Test : cohérence `APP_VERSION` / `?v=` / cache du service worker. `APP_VERSION` 11, cache `cinqrois-v11`.
 4. Si la page reste figée chez l'auteur : fermer complètement l'appli puis la rouvrir (deux fois) ; sinon vider les données du site (Réglages Safari) ou réinstaller l'icône.
+
+## 2026-11-14 — v12 : adaptation à l'iPhone 16e (écran de référence 390 × ~664 utiles)
+1. Constat : aucun débordement horizontal ; l'accueil était devenu trop long (panneau Aides) et « Nouvelle partie » sortait de l'écran.
+2. Panneau « Aides » replié par défaut (résumé « Aides · N sur 6 actives ») ; bouton « Nouvelle partie » collant en bas de l'écran.
+3. `APP_VERSION` 12, cache `cinqrois-v12`, scripts `?v=12`. Test e2e adapté (73 vérifications OK).

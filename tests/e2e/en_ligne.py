@@ -294,8 +294,8 @@ def main():
         print('Option « dernières cartes prises »')
         fa = device(browser, faux, url); login(fa, 'max@example.com')
         fa.fill('#n1', 'Max'); fa.click('#segOpp button[data-n="1"]')
-        check('les aides sont réglables à la création (panneau « Aides »)', fa.is_visible('#optAides') and fa.locator('[data-opt]').count() == 6)
-        fa.click('[data-opt="prises"]')
+        check('les aides sont réglables à la création (panneau « Aides », replié par défaut)', fa.is_visible('#optAides') and fa.locator('[data-opt]').count() == 6 and 'sur 6' in fa.inner_text('#optAidesSum').lower())
+        fa.click('#optAides summary'); fa.click('[data-opt="prises"]')
         fa.click('#btnNew'); fa.wait_for_selector('#wait:not([hidden])')
         fcode = fa.inner_text('#waitCode').strip()
         check('la partie porte l’option « dernières cartes prises » dans son état', faux.rows[fcode]['etat'].get('opts', {}).get('prises') is True and faux.rows[fcode]['etat']['opts']['groupes'] is True)
@@ -375,6 +375,7 @@ def main():
         print('Aides réglables (en ligne, choix de l’hôte)')
         da = device(browser, faux, url); login(da, 'max@example.com')
         da.fill('#n1', 'Max'); da.click('#segOpp button[data-n="1"]')
+        da.click('#optAides summary')
         for k in ('groupes', 'points', 'defausse', 'joker', 'sortie'):
             da.click('[data-opt="%s"]' % k)
         da.click('#btnNew'); da.wait_for_selector('#wait:not([hidden])')
