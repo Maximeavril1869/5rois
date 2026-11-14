@@ -95,3 +95,8 @@ Constat de l'auteur sur son appareil après la v10 : boutons sans réaction, num
 1. `apple-mobile-web-app-status-bar-style` passe de `black-translucent` à `default` ; marge +14 px retirée.
 2. Ce réglage n'est lu qu'à l'installation : supprimer l'icône de l'écran d'accueil puis la rajouter depuis Safari.
 3. `APP_VERSION` 14, cache `cinqrois-v14`.
+
+## 2026-11-14 — v15 : en-tête descendu sous la zone floutée d'iOS
+1. Retour de l'auteur (capture) : v13 (+14 px) = « légèrement flou » ; v14 (barre d'état `default`, sans marge) = texte remonté dans le flou. Le flou est un effet d'iOS sur ~75 pt en haut de l'écran.
+2. Plan du jour n'a pas le problème car son titre commence à ~80 pt (zone sûre + 20 px). Ici : marge haute +28 px (titre vers 88 pt). Barre d'état laissée à `default`.
+3. `APP_VERSION` 15, cache `cinqrois-v15`.

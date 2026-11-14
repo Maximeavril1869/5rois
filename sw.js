@@ -1,8 +1,8 @@
 /* Service worker : met l'application en cache pour jouer hors ligne.
    Les fichiers sont toujours revalidés auprès du serveur (cache: 'no-cache') : le cache HTTP du navigateur (GitHub Pages : 10 min) ne peut plus
    mélanger un vieux index.html avec un nouvel app.js. Les scripts portent en plus ?v=N (index.html), à changer avec CACHE à chaque livraison. */
-var CACHE = 'cinqrois-v14';
-var FILES = ['./', './index.html', './engine.js?v=14', './en-ligne.js?v=14', './app.js?v=14', './manifest.webmanifest',
+var CACHE = 'cinqrois-v15';
+var FILES = ['./', './index.html', './engine.js?v=15', './en-ligne.js?v=15', './app.js?v=15', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
 self.addEventListener('install', function (e) {
