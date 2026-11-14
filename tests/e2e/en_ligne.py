@@ -123,7 +123,7 @@ def device(browser, faux, url, poll=150, viewport=None):
     pg.on('pageerror', lambda e: pg.errors.append(str(e)))
     pg.on('console', lambda m: pg.errors.append(m.text) if m.type == 'error' and 'ERR_FAILED' not in m.text and 'Failed to load resource' not in m.text else None)
     pg.on('dialog', lambda d: d.accept())
-    pg.add_init_script('window.BOT_DELAY=5; window.EL_OPTIONS={poll:%d}; window.PLATEAU_POLL=250; window.PLATEAU_BEAT=300; window.PLATEAU_FRESH=1500;' % poll)
+    pg.add_init_script('window.BOT_DELAY=5; window.EL_OPTIONS={poll:%d};' % poll)
     pg.goto(url)
     return pg
 
@@ -255,30 +255,12 @@ def main():
         b.wait_for_selector('#game:not([hidden])')
         check('reprise : Claire retrouve sa main', b.locator('#hand .card').count() >= 3 and 'Claire' in b.inner_text('#roundSub'))
 
-        print('Plateau (iPad en affichage seul)')
-        plat_rows = lambda: [r for r in faux.rows.values() if r['jeu'] == 'plateau']
-        pl = device(browser, faux, url, viewport={'width': 1024, 'height': 768})
-        login(pl, 'max@example.com')
-        pl.fill('#olCode', 'ZZZZ'); pl.click('#btnOlPlateau')
-        pl.wait_for_selector('#olErr:not([hidden])')
-        check('plateau : code inconnu refusé', 'inconnu' in pl.inner_text('#olErr'), pl.inner_text('#olErr'))
-        pl.fill('#olCode', code); pl.click('#btnOlPlateau')
-        pl.wait_for_selector('#plateau:not([hidden])')
-        check('le plateau montre les 3 joueurs, leurs scores et leur nombre de cartes', pl.locator('#plSeats .opp').count() == 3 and 'cartes' in pl.inner_text('#plSeats'), pl.inner_text('#plSeats'))
-        check('le plateau ne montre aucune main (dos de cartes seulement)', pl.locator('#plSeats .card').count() == 0 and pl.locator('#plSeats .fan i').count() >= 9)
-        check('pioche et défausse affichées, sans mode facile : pas de « Prise »', pl.locator('#plDisc .card').count() == 1 and pl.locator('#plDeck .cardback').count() == 1 and pl.locator('#plSeats .taken').count() == 0)
-        check('le plateau ne se comporte pas comme un joueur (pas de main, pas de bouton de jeu)', pl.locator('#hand .card').count() == 0 and not pl.is_visible('#pileDeck'))
-        check('le plateau écrit sa propre ligne (jeu « plateau », titre = code)', wait_for(lambda: any(r['titre'] == code for r in plat_rows()), 4000, pg=pl))
-        check('la ligne de la partie ne contient rien du plateau', 'plateau' not in state(faux, code))
-        check('téléphones : la table commune se cache dès que le plateau est branché', wait_for(lambda: a.locator('#game.notable').count() == 1 and b.locator('#game.notable').count() == 1, 8000, pg=a))
-        check('téléphone : adversaires et visuels de pioche / défausse masqués, main toujours visible', not a.is_visible('#opps') and not a.is_visible('#deckVisual') and not a.is_visible('#discardVisual') and a.locator('#hand .card').count() >= 3)
-        check('téléphone : boutons « Piocher » et « Prendre la défausse »', a.is_visible('#pileDeck') and a.inner_text('#lblDeck') == 'Piocher' and a.inner_text('#lblDisc') == 'Prendre la défausse', a.inner_text('#lblDisc'))
-        check('téléphone : bouton de secours « Afficher la table »', a.is_visible('#btnTable') and a.inner_text('#btnTable') == 'Afficher la table')
-        a.click('#btnTable')
-        check('bouton de secours : la table revient', a.locator('#game.notable').count() == 0 and a.is_visible('#deckVisual') and a.inner_text('#btnTable') == 'Masquer la table')
-        a.click('#btnTable')
-        check('et se recache', a.locator('#game.notable').count() == 1)
-        check('le plateau suit la partie : même tour que le serveur', wait_for(lambda: state(faux, code)['names'][state(faux, code)['turn']] in pl.inner_text('#plMsg'), 4000, pg=pl), pl.inner_text('#plMsg'))
+        print('Plateau retiré de 5 Rois')
+        check('plus de plateau : ni écran, ni bouton « Ouvrir comme plateau », ni bouton « table »', a.locator('#plateau, #btnOlPlateau, #btnTable, #plSeats').count() == 0)
+        check('aucune ligne « plateau » n’est écrite sur le serveur', not [r for r in faux.rows.values() if r['jeu'] == 'plateau'])
+        check('les deux téléphones gardent la table (adversaires, pioche, défausse visibles)', a.is_visible('#opps') and a.is_visible('#deckVisual') and b.is_visible('#discardVisual') and a.inner_text('#lblDeck') == 'Pioche')
+        check('la page ne charge plus aucune règle de plateau (#game.notable)', a.locator('#game.notable').count() == 0)
+
 
         print('Une manche complète à deux appareils')
         ended = False
@@ -293,7 +275,6 @@ def main():
         if ended:
             check('mêmes résultats des deux côtés', a.inner_text('#roundBody') == b.inner_text('#roundBody'))
             check('le serveur indique la manche terminée', state(faux, code)['roundEnded'] is True)
-            check('plateau : fin de manche affichée avec les mains révélées, sans bouton', wait_for(lambda: pl.locator('#plResults .resrow').count() == 3, 4000, pg=pl) and pl.locator('#plResults .js-next, #plResults .btn').count() == 0, pl.inner_text('#plResults')[:200])
             print('Manche suivante pressée en même temps')
             clk = "() => { const e = document.querySelector('#roundBody .js-next'); if (e) e.click(); }"
             a.evaluate(clk); b.evaluate(clk)
@@ -301,24 +282,6 @@ def main():
             a.wait_for_timeout(1500)
             check('toujours la manche 2 après la synchro', state(faux, code)['round'] == 1 and not round_open(a) and not round_open(b), state(faux, code)['round'])
             check('manche 2 : 4 cartes par joueur sur chaque appareil', a.locator('#hand .card').count() == 4 and b.locator('#hand .card').count() == 4)
-
-        if ended:
-            check('plateau : passe à la manche 2 avec les deux téléphones', wait_for(lambda: 'Manche 2' in pl.inner_text('#plTitle') and pl.locator('#plResults .resrow').count() == 0, 6000, pg=pl), pl.inner_text('#plTitle'))
-
-        print('Plateau fermé sans prévenir, puis rouvert')
-        pl.context.close()
-        check('le plateau disparaît (iPad éteint) : les téléphones réaffichent la table tout seuls', wait_for(lambda: a.locator('#game.notable').count() == 0 and b.locator('#game.notable').count() == 0, 8000, pg=a))
-        check('la ligne laissée par le plateau est encore là (rien ne la nettoie)', len(plat_rows()) == 1)
-        pl2 = device(browser, faux, url, viewport={'width': 1024, 'height': 768})
-        login(pl2, 'max@example.com')
-        pl2.fill('#olCode', code); pl2.click('#btnOlPlateau')
-        pl2.wait_for_selector('#plateau:not([hidden])')
-        check('nouveau plateau : la table se recache et la ligne est réutilisée (une seule)', wait_for(lambda: a.locator('#game.notable').count() == 1, 8000, pg=a) and len(plat_rows()) == 1, len(plat_rows()))
-        pl2.click('#btnPlQuit')
-        pl2.wait_for_selector('#home:not([hidden])')
-        check('le plateau quitté efface sa ligne', wait_for(lambda: len(plat_rows()) == 0, 4000, pg=pl2))
-        check('les téléphones réaffichent la table', wait_for(lambda: a.locator('#game.notable').count() == 0 and b.locator('#game.notable').count() == 0, 6000, pg=a))
-        pl2.context.close()
 
         print('Suppression')
         b.click('#btnMenu'); b.click('#btnQuit')
@@ -338,9 +301,6 @@ def main():
         check('la partie porte le choix « facile » dans son état', faux.rows[fcode]['etat'].get('facile') is True)
         fb = device(browser, faux, url); login(fb, 'claire@example.com'); fb.fill('#n1', 'Claire')
         fb.fill('#olCode', fcode); fb.click('#btnOlJoin'); fb.wait_for_selector('#game:not([hidden])')
-        fp = device(browser, faux, url, viewport={'width': 1024, 'height': 768}); login(fp, 'max@example.com')
-        fp.fill('#olCode', fcode); fp.click('#btnOlPlateau'); fp.wait_for_selector('#plateau:not([hidden])')
-        check('plateau : le mode facile est annoncé et chaque joueur a une ligne « Prise »', 'mode facile' in fp.inner_text('#plSub') and fp.locator('#plSeats .taken').count() == 3)
         wait_for(lambda: state(faux, fcode)['turn'] in (0, 1) and state(faux, fcode)['phase'] == 'draw', 8000, pg=fa)
         seat = state(faux, fcode)['turn']
         mover, watcher = (fa, fb) if seat == 0 else (fb, fa)
@@ -348,10 +308,57 @@ def main():
         top_id = state(faux, fcode)['discard'][-1]['id']
         mover.click('#pileDiscard')
         check('l’état enregistre la carte prise', wait_for(lambda: (state(faux, fcode).get('taken') or [None] * 3)[seat] is not None, 6000, pg=mover) and state(faux, fcode)['taken'][seat]['id'] == top_id)
-        sel = '#plSeats .opp:nth-child(%d) .taken .card' % (seat + 1)
-        check('plateau : la carte prise s’affiche chez le bon joueur', wait_for(lambda: fp.locator(sel).count() == 1 and fp.locator(sel).get_attribute('data-id') == str(top_id), 6000, pg=fp))
+        check('le mode facile s’affiche sur chaque téléphone (une ligne « Prise » par joueur)', wait_for(lambda: mover.locator('#opps .taken').count() >= 1 and watcher.locator('#opps .taken').count() >= 1, 6000, pg=watcher))
         check('l’autre téléphone voit aussi la carte prise (table affichée)', wait_for(lambda: watcher.locator('#opps .taken .card').count() >= 1, 6000, pg=watcher))
-        check('aucune erreur JavaScript (mode facile et plateau)', not fa.errors and not fb.errors and not fp.errors, fa.errors + fb.errors + fp.errors)
+        check('aucune erreur JavaScript (mode facile)', not fa.errors and not fb.errors, fa.errors + fb.errors)
+
+        print('Mode difficile : joker non indiqué, aucune aide')
+        sd = device(browser, faux, url)
+        check('l’option « Mode difficile » est proposée en solo', sd.is_visible('#optDifficile') and not sd.is_visible('#optFacile'))
+        sd.click('#segMode button[data-m="seul"]')
+        check('pas de mode difficile dans la variante solitaire', not sd.is_visible('#optDifficile'))
+        sd.click('#segMode button[data-m="solo"]')
+        sd.click('#segOpp button[data-n="1"]')
+        sd.click('#btnNew'); sd.wait_for_selector('#game:not([hidden])')
+        check('sans le mode difficile : bandeau « joker » affiché', sd.is_visible('#wildBadge') and '= joker' in sd.inner_text('#wildBadge'))
+        main_cree = '[{id:900,suit:0,rank:4},{id:901,suit:0,rank:5},{id:902,suit:0,rank:6}]'
+        main_joker = '[{id:903,suit:1,rank:9},{id:904,suit:2,rank:3},{id:905,suit:0,rank:0}]'
+        def charger(pg, main, dif):
+            pg.evaluate("""([m, d]) => { const k = 'cinqrois_partie_v1'; const g = JSON.parse(localStorage.getItem(k));
+                g.hands[0] = m; g.turn = 0; g.phase = 'draw'; g.roundEnded = false; g.outBy = -1; if (d) g.difficile = true; else delete g.difficile;
+                localStorage.setItem(k, JSON.stringify(g)); }""", [__import__('json').loads(main.replace('id', '"id"').replace('suit', '"suit"').replace('rank', '"rank"')), dif])
+            pg.reload(); pg.wait_for_selector('#btnResume:not([hidden])'); pg.click('#btnResume'); pg.wait_for_selector('#game:not([hidden])')
+        charger(sd, main_cree, False)
+        check('avec aide : la suite 4-5-6 est regroupée et le décompte « isolées » affiché', sd.locator('#hand .group.run').count() == 1 and 'isolées' in sd.inner_text('#handInfo'))
+        charger(sd, main_joker, False)
+        check('avec aide : le joker de la manche et le joker réel sont signalés', sd.locator('#hand .card.wild').count() == 2)
+        # on active le mode difficile (case de l'accueil) et on rejoue le même scénario
+        sd.click('#btnMenu'); sd.click('#btnQuit'); sd.wait_for_selector('#home:not([hidden])')
+        sd.reload(); sd.click('#swDifficile'); sd.click('#btnNew'); sd.wait_for_selector('#game:not([hidden])')
+        check('mode difficile : la partie porte le choix et l’annonce', sd.evaluate("() => JSON.parse(localStorage.getItem('cinqrois_partie_v1')).difficile") is True and 'difficile' in sd.inner_text('#roundSub'))
+        check('mode difficile : bandeau « joker » absent', not sd.is_visible('#wildBadge') and sd.inner_text('#wildBadge') == '')
+        charger(sd, main_cree, True)
+        check('mode difficile : aucun regroupement, aucun décompte, aucune défausse conseillée', sd.locator('#hand .group:not(.rest)').count() == 0 and sd.locator('#hand .card.sug').count() == 0 and sd.inner_text('#handInfo').strip() == '')
+        charger(sd, main_joker, True)
+        ordre = [c.get_attribute('data-id') for c in sd.locator('#hand .card').all()]
+        check('mode difficile : aucune carte signalée comme joker', sd.locator('#hand .card.wild').count() == 0)
+        check('mode difficile : tri neutre (couleur puis valeur), les jokers ne sont pas rejetés en fin', ordre == ['905', '903', '904'], ordre)
+        sd.click('#btnMenu')
+        check('mode difficile : pas de réglage d’aide dans le menu de partie', not sd.is_visible('#swAide2'))
+        sd.keyboard.press('Escape')
+        check('aucune erreur JavaScript (mode difficile solo)', not sd.errors, sd.errors)
+
+        da = device(browser, faux, url); login(da, 'max@example.com')
+        da.fill('#n1', 'Max'); da.click('#segOpp button[data-n="1"]')
+        check('l’option « Mode difficile » est proposée en ligne', da.is_visible('#optDifficile'))
+        if not da.evaluate("() => document.getElementById('swDifficile').classList.contains('on')"): da.click('#swDifficile')
+        da.click('#btnNew'); da.wait_for_selector('#wait:not([hidden])')
+        dcode = da.inner_text('#waitCode').strip()
+        check('en ligne : l’état serveur porte « difficile » (choix de l’hôte)', faux.rows[dcode]['etat'].get('difficile') is True)
+        db = device(browser, faux, url); login(db, 'claire@example.com'); db.fill('#n1', 'Claire')
+        db.fill('#olCode', dcode); db.click('#btnOlJoin'); db.wait_for_selector('#game:not([hidden])')
+        check('en ligne : l’invité joue aussi en difficile (pas de joker indiqué, pas d’aide)', not db.is_visible('#wildBadge') and 'difficile' in db.inner_text('#roundSub') and db.locator('#hand .group:not(.rest)').count() == 0)
+        check('aucune erreur JavaScript (mode difficile en ligne)', not da.errors and not db.errors, da.errors + db.errors)
         browser.close()
     failed = [n for n, ok in RESULTS if not ok]
     print('\n%d vérifications, %d échec(s)' % (len(RESULTS), len(failed)))

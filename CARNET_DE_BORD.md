@@ -5,13 +5,13 @@ Journal des opérations du projet, pour pouvoir le reprendre sans rien perdre. L
 ## État courant
 
 - Modes : contre l'ordinateur, **en ligne** (2 humains sur 2 appareils + ordinateurs), variante solitaire. Passe-passe et face à face supprimés (remplacés par l'en ligne).
-- Version 8 (plateau + mode facile). Testé en navigateur simulé uniquement ; le mode En ligne n'a pas encore été essayé sur de vrais appareils pour ce jeu (il l'a été pour Skyjo, avec la même brique `en-ligne.js`).
+- Version 9 (plateau retiré, mode difficile ajouté ; mode facile conservé). Testé en navigateur simulé uniquement ; le mode En ligne n'a pas encore été essayé sur de vrais appareils pour ce jeu (il l'a été pour Skyjo, avec la même brique `en-ligne.js`).
 
 ## À faire
 
 - Essayer l'en ligne sur iPhone / iPad / téléphone Android et corriger ce qui sort des essais réels.
 - Le rangement manuel des cartes est perdu si on recharge la page en ligne (il est propre à l'appareil et non enregistré).
-- Essayer le plateau sur un vrai iPad avec deux téléphones, et vérifier que le vrai Supabase accepte la ligne `jeu = 'plateau'` (les téléphones gardent la table sinon).
+- (obsolète depuis v9 : plateau retiré) Essayer le plateau sur un vrai iPad avec deux téléphones, et vérifier que le vrai Supabase accepte la ligne `jeu = 'plateau'` (les téléphones gardent la table sinon).
 - Déployer ensuite l'en ligne dans les autres jeux (6 qui prend, Flip 7, Le Contrat, Bataille navale, EnqueteManoir).
 
 ## Historique avant 2026-11-12
@@ -47,3 +47,15 @@ Opérations :
 4. Choix retenu : détection automatique + bouton de secours, sans signe de vie dans la ligne de la partie (la synchro par état complet fait gagner l'autre en cas de conflit : un plateau qui y écrirait ferait perdre des coups).
 5. Tests : 66 vérifications (29 nouvelles : plateau, masquage et retour de la table, plateau fermé sans prévenir puis rouvert (ligne réutilisée), fin de manche sur le plateau, mode facile de bout en bout). `solo_seul.py` inchangé et vert.
 6. `APP_VERSION` 8, cache `cinqrois-v8`.
+
+## Version 9 (14/11/2026) — Plateau retiré, mode difficile
+
+Décisions de l'auteur (après essai de la v8) : le plateau « ne sert pas à grand-chose » → retiré de 5 Rois. Nouveau **mode difficile** : joker de la manche non indiqué, aucune aide aux groupes ni à la défausse, solo et en ligne, choisi à la création (l'hôte décide pour les deux en ligne). Non appliqué à la variante solitaire (non demandé).
+
+Opérations :
+
+1. `app.js` : suppression du plateau (`plateauStart`, `plRender`, `plRemote`, `plStatus`, `plStop`, `plBeat`, `platWatch`, `noTable`), du bouton « Afficher la table » et de `roundHTML(…, view)`. Plus aucune lecture ni écriture de ligne `plateau`.
+2. `index.html` : suppression de `#plateau`, de `#btnOlPlateau`, de `#btnTable` et des styles `.notable` / `#plateau` ; ajout du panneau « Mode difficile » (`#optDifficile`, `#swDifficile`).
+3. `app.js` : `G.difficile` (posé à la création solo / en ligne, conservé par « Nouvelle partie » en ligne) ; `aideOn()` ; pas de classe `wild` ; `sortHand` sans indice ; bandeau joker caché ; libellé de sortie neutre ; réglage d'aide caché dans le menu de partie ; « · difficile » dans le sous-titre.
+4. Tests : 64 vérifications (plateau remplacé par « plateau retiré » ; facile sans plateau ; difficile : mains fabriquées, avec et sans aide, tri, état serveur, invité en difficile).
+5. `APP_VERSION` 9, cache `cinqrois-v9`.
