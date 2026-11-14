@@ -6,9 +6,27 @@ Rami à 5 couleurs, 11 manches. Trois modes : contre l'ordinateur (1 à 6 advers
 
 Il faut un compte (le même que pour les autres applications). On crée une partie, on reçoit un code à 4 lettres, l'autre joueur le tape après avoir choisi « En ligne ». La main de chacun n'est affichée que sur son appareil (les mains sont cachées à l'écran, pas chiffrées : le jeu repose sur la confiance entre les deux joueurs). Les anciens modes « on se passe l'appareil » et « face à face » ont été remplacés par l'en ligne.
 
-**Mode difficile** (choix à la création de la partie, en solo comme en ligne ; l'hôte décide pour les deux joueurs en ligne) : le joker de la manche n'est pas indiqué (ni bandeau, ni carte surlignée, ni tri qui trahit les jokers), aucune aide aux groupes ni à la défausse conseillée, et le bouton ne dit pas si tu peux sortir. À toi de retenir la valeur du joker ; si tu la rates, tant pis. La sortie reste détectée automatiquement par le jeu. Sans effet dans la variante solitaire.
+**Aides réglables une à une** (solo et en ligne ; choisies à la création de la partie, l'hôte décide pour les deux joueurs en ligne ; la variante solitaire garde son interrupteur d'aide) :
 
-**Mode facile** (choix à la création de la partie) : affiche pour chaque joueur la dernière carte qu'il a prise dans la défausse.
+- *Aide au regroupement* : les combinaisons de ta main sont regroupées.
+- *Décompte des points* : points isolés de ta main (et ce qu'il resterait en défaussant la carte choisie).
+- *Défausse conseillée* : point doré sur la carte à défausser.
+- *Affichage du joker* : bandeau « ♛ X = joker », cartes surlignées, jokers rangés en fin de main. Coupé, le tri est neutre et c'est à toi de retenir la valeur.
+- *Indice de sortie* : message « Tu peux sortir » et bouton « Sortir en défaussant ». La sortie reste détectée par le jeu quand tu défausses. Avec le décompte actif, un « 0 pt » trahit encore la sortie.
+- *Dernières cartes prises* (coupée par défaut) : pour chaque adversaire, la dernière carte prise dans la défausse.
+
+Tout couper donne un jeu « difficile ». Avec le regroupement actif, les groupes montrent encore où le joker sert.
+
+**Aides réglables une à une** (solo et en ligne ; choisies à la création de la partie, l'hôte décide pour les deux joueurs en ligne ; la variante solitaire garde son interrupteur d'aide) :
+
+- *Aide au regroupement* : les combinaisons de ta main sont regroupées.
+- *Décompte des points* : points isolés de ta main (et ce qu'il resterait en défaussant la carte choisie).
+- *Défausse conseillée* : point doré sur la carte à défausser.
+- *Affichage du joker* : bandeau « ♛ X = joker », cartes surlignées, jokers rangés en fin de main. Coupé, le tri est neutre et c'est à toi de retenir la valeur.
+- *Indice de sortie* : message « Tu peux sortir » et bouton « Sortir en défaussant ». La sortie reste détectée par le jeu quand tu défausses. Avec le décompte actif, un « 0 pt » trahit encore la sortie.
+- *Dernières cartes prises* (coupée par défaut) : pour chaque adversaire, la dernière carte prise dans la défausse.
+
+Tout couper donne un jeu « difficile ». Avec le regroupement actif, les groupes montrent encore où le joker sert.
 
 Rangement manuel : « ⇄ Ranger » puis on touche deux cartes pour les échanger ; « ↺ Tri auto » revient au tri automatique.
 

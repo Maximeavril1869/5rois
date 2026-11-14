@@ -213,7 +213,7 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
 .olitem .t{flex:1;min-width:0}.olitem .t b{letter-spacing:.15em}.olitem .t small{display:block;color:var(--muted)}
 .olitem button{padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.22);background:transparent;color:inherit;font-size:14px}
 .ver{margin:0;color:var(--muted);font-size:12px;opacity:.7}
-/* ---------- Mode facile : dernière carte prise ---------- */
+/* ---------- Option « dernières cartes prises » ---------- */
 .card.gone{opacity:.45}
 .taken{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--muted);min-height:38px}
 .taken .card{--cw:26px;--ch:37px;box-shadow:none;margin:0}
@@ -247,17 +247,15 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
       <h3>Ton prénom</h3>
       <input id="n1" maxlength="14" autocomplete="off" aria-label="Ton prénom">
     </div>
-    <div class="panel" id="optDifficile" hidden>
-      <div class="row">
-        <div style="text-align:left"><b>Mode difficile</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Le joker de la manche n'est pas indiqué, aucune aide aux groupes ni à la défausse : à toi de t'en souvenir. Se choisit à la création de la partie.</div></div>
-        <button class="switch" id="swDifficile" aria-label="Mode difficile"></button>
-      </div>
-    </div>
-    <div class="panel" id="optFacile" hidden>
-      <div class="row">
-        <div style="text-align:left"><b>Mode facile</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Affiche la dernière carte prise dans la défausse par chacun. Se choisit à la création de la partie.</div></div>
-        <button class="switch" id="swFacile" aria-label="Mode facile"></button>
-      </div>
+    <div class="panel" id="optAides" hidden>
+      <h3>Aides</h3>
+      <div class="row"><div style="text-align:left"><b>Aide au regroupement</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Montre tes combinaisons</div></div><button class="switch" data-opt="groupes" aria-label="Aide au regroupement"></button></div>
+      <div class="row"><div style="text-align:left"><b>Décompte des points</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Points isolés de ta main</div></div><button class="switch" data-opt="points" aria-label="Décompte des points"></button></div>
+      <div class="row"><div style="text-align:left"><b>Défausse conseillée</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Point doré sur la carte à défausser</div></div><button class="switch" data-opt="defausse" aria-label="Défausse conseillée"></button></div>
+      <div class="row"><div style="text-align:left"><b>Affichage du joker</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Bandeau et cartes surlignées</div></div><button class="switch" data-opt="joker" aria-label="Affichage du joker"></button></div>
+      <div class="row"><div style="text-align:left"><b>Indice de sortie</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">« Tu peux sortir » et libellé du bouton</div></div><button class="switch" data-opt="sortie" aria-label="Indice de sortie"></button></div>
+      <div class="row"><div style="text-align:left"><b>Dernières cartes prises</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Pour chaque adversaire, la dernière carte prise dans la défausse</div></div><button class="switch" data-opt="prises" aria-label="Dernières cartes prises"></button></div>
+      <div style="color:var(--muted);font-size:12.5px;margin-top:8px">Réglé à la création de la partie ; en ligne, c'est l'hôte qui décide pour les deux joueurs.</div>
     </div>
     <div class="panel" id="onlinePanel" hidden>
       <h3>Compte pour jouer en ligne</h3>
@@ -275,7 +273,7 @@ table.sc tr.tot td{font-weight:800;font-size:16px;border-top:2px solid var(--gol
       </div>
       <p class="olerr" id="olErr" role="alert" hidden></p>
     </div>
-    <div class="panel">
+    <div class="panel" id="optAideSeul" hidden>
       <div class="row">
         <div style="text-align:left"><b>Aide au regroupement</b><div style="color:var(--muted);font-size:12.5px;margin-top:2px">Montre tes combinaisons et une défausse conseillée</div></div>
         <button class="switch on" id="swAide" aria-label="Aide"></button>

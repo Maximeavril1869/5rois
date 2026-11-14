@@ -5,7 +5,7 @@ Journal des opérations du projet, pour pouvoir le reprendre sans rien perdre. L
 ## État courant
 
 - Modes : contre l'ordinateur, **en ligne** (2 humains sur 2 appareils + ordinateurs), variante solitaire. Passe-passe et face à face supprimés (remplacés par l'en ligne).
-- Version 9 (plateau retiré, mode difficile ajouté ; mode facile conservé). Testé en navigateur simulé uniquement ; le mode En ligne n'a pas encore été essayé sur de vrais appareils pour ce jeu (il l'a été pour Skyjo, avec la même brique `en-ligne.js`).
+- Version 10 (aides réglables une à une ; plateau retiré en v9). Testé en navigateur simulé uniquement ; le mode En ligne n'a pas encore été essayé sur de vrais appareils pour ce jeu (il l'a été pour Skyjo, avec la même brique `en-ligne.js`).
 
 ## À faire
 
@@ -59,3 +59,16 @@ Opérations :
 3. `app.js` : `G.difficile` (posé à la création solo / en ligne, conservé par « Nouvelle partie » en ligne) ; `aideOn()` ; pas de classe `wild` ; `sortHand` sans indice ; bandeau joker caché ; libellé de sortie neutre ; réglage d'aide caché dans le menu de partie ; « · difficile » dans le sous-titre.
 4. Tests : 64 vérifications (plateau remplacé par « plateau retiré » ; facile sans plateau ; difficile : mains fabriquées, avec et sans aide, tri, état serveur, invité en difficile).
 5. `APP_VERSION` 9, cache `cinqrois-v9`.
+
+## Version 10 (14/11/2026) — Aides réglables une à une
+
+Décision de l'auteur : plus de « modes » facile / difficile ; six réglages indépendants, fixés à la création de la partie (l'hôte décide pour les deux en ligne), sans préréglages : aide au regroupement, décompte des points, défausse conseillée, affichage du joker, indice de sortie, dernières cartes prises (ex-« facile », coupée par défaut). Variante solitaire inchangée.
+
+Opérations :
+
+1. `app.js` : `G.opts`, `OPT_DEF`, `copyOpts`, `curOpts` (conversion des parties v8 `facile` et v9 `difficile`), `opt(k)` ; l'ancienne `aideOn()` supprimée. Réglages enregistrés dans `prefs.opts` (anciens réglages migrés).
+2. `index.html` : panneau « Aides » (6 interrupteurs `data-opt`), panneau d'aide réservé à la variante solitaire (`#optAideSeul`) ; plus de « Mode facile » ni « Mode difficile ».
+3. Menu de partie : plus de réglage d'aide en solo / en ligne (sauf solitaire).
+4. Tests : 71 vérifications (chaque option testée seule avec des mains fabriquées, état serveur en ligne, invité qui suit l'hôte, conversion d'une partie v9).
+5. Limite connue, documentée : avec le décompte actif, « 0 pt » trahit la sortie ; avec le regroupement actif, les groupes montrent où le joker sert.
+6. `APP_VERSION` 10, cache `cinqrois-v10`.

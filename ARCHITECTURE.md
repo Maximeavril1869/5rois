@@ -11,7 +11,7 @@ en-ligne.js           Brique commune « En ligne » (copie de celle de Skyjo) : 
 app.js                Interface et logique des modes (solo, en ligne, solitaire)
 sw.js                 Service worker : cache hors ligne (réseau d'abord)
 manifest.webmanifest, icons/    PWA
-tests/e2e/en_ligne.py           Deux appareils simulés (Chromium) + faux Supabase en mémoire (64 vérifications)
+tests/e2e/en_ligne.py           Deux appareils simulés (Chromium) + faux Supabase en mémoire (71 vérifications)
 tests/e2e/solo_seul.py          Essai de fumée : contre l'ordinateur et solitaire
 ```
 
@@ -25,7 +25,7 @@ Les distributions et le mélange sont aléatoires : l'état complet est donc rec
 
 ## État de partie (`G`)
 
-`n, names[], human[], scores[], history[], over, round, cards, wild, dealer, hands[][], deck[], discard[], turn, phase ('draw'|'discard'), noDiscard, outBy, finalLeft, roundEnded, results, last, mode ('solo'|'online'|'seul'), taken[], facile, difficile`. `taken[p]` = dernière carte prise dans la défausse par le joueur p (remis à zéro à chaque manche, mis à jour par `Engine.draw`) ; `facile` = option choisie à la création (en ligne seulement) qui affiche `taken` sur la table des téléphones. `difficile` = option choisie à la création (solo et en ligne, jamais en solitaire) : `aideOn()` vaut faux (plus de groupes ni de défausse conseillée ni de décompte), `cardHTML` ne marque plus les cartes `wild`, `sortHand` ignore les jokers (aucun indice par le tri), le bandeau du joker est caché et le bouton ne dit plus « Sortir en défaussant » (la sortie reste détectée par `Engine.discard`). En ligne : `G.online = {uids:[uid hôte, uid invité|null], joined}`. `G.order` (rangement manuel des cartes) est **propre à chaque appareil** : jamais envoyé au serveur, conservé quand l'état distant est repris.
+`n, names[], human[], scores[], history[], over, round, cards, wild, dealer, hands[][], deck[], discard[], turn, phase ('draw'|'discard'), noDiscard, outBy, finalLeft, roundEnded, results, last, mode ('solo'|'online'|'seul'), taken[], opts`. `taken[p]` = dernière carte prise dans la défausse par le joueur p (remis à zéro à chaque manche, mis à jour par `Engine.draw`) ; `opts` = aides de la partie, choisies à la création (solo et en ligne, jamais en solitaire) : `{groupes, points, defausse, joker, sortie, prises}` (booléens ; défaut : tout vrai sauf `prises`). Lues par `opt(k)` : `groupes` (regroupement de la main), `points` (décompte), `defausse` (point doré), `joker` (bandeau, classe `wild`, tri qui range les jokers en fin), `sortie` (« Tu peux sortir » et libellé du bouton ; la sortie reste détectée par `Engine.discard`), `prises` (affiche `taken`). Les parties créées en v8 (`facile`) ou v9 (`difficile`) sont converties à la lecture (`curOpts`). En ligne, l'état serveur porte `opts` : l'hôte décide pour les deux appareils. Le menu de partie n'a plus de réglage d'aide (sauf en solitaire, qui garde `prefs.aide`). En ligne : `G.online = {uids:[uid hôte, uid invité|null], joined}`. `G.order` (rangement manuel des cartes) est **propre à chaque appareil** : jamais envoyé au serveur, conservé quand l'état distant est repris.
 
 ## Modes
 

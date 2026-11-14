@@ -1,11 +1,12 @@
 /* 5 Rois — interface. Tout est local : la partie est sauvegardée dans le navigateur (localStorage).
    Trois modes : contre l'ordinateur ('solo'), en ligne à deux sur deux appareils ('online'), et la variante
    solitaire à une personne ('seul'). Le mode en ligne synchronise l'état complet via Supabase (voir en-ligne.js).
-   Mode difficile (solo et en ligne, choisi à la création) : joker de la manche non indiqué, aucune aide aux groupes ni à la défausse. */
+   Aides réglables une à une (solo et en ligne, choisies à la création ; en ligne, l'hôte décide pour les deux) : groupes, décompte des points,
+   défausse conseillée, affichage du joker, indice de sortie, dernières cartes prises. */
 (function () {
   'use strict';
   var E = window.Engine;
-  var SAVE_KEY = 'cinqrois_partie_v1', PREF_KEY = 'cinqrois_prefs_v1', OKEY = 'cinqrois_online_v1', APP_VERSION = '9';
+  var SAVE_KEY = 'cinqrois_partie_v1', PREF_KEY = 'cinqrois_prefs_v1', OKEY = 'cinqrois_online_v1', APP_VERSION = '10';
   var EL = window.EnLigne;
   var ONL = null;            // partie en ligne : { id, me, version, dirty, pushing, status, watch, retry }
   var BOT_NAMES = ['Camille', 'Hugo', 'Léa', 'Noé', 'Inès', 'Louis'];   // jusqu'à 6 adversaires (7 joueurs)
@@ -16,7 +17,9 @@
   var lastNewId = null;
   var seulHints = null;      // variante solitaire : pénalité atteignable par main avec la carte révélée
   var arrOn = {}, arrSel = {}; // rangement manuel : mode actif et première carte touchée, par joueur
-  var prefs = { aide: true, opp: 2, mode: 'solo', n1: 'Joueur 1', facile: false, difficile: false };
+  var OPT_DEF = { groupes: true, points: true, defausse: true, joker: true, sortie: true, prises: false };
+  var prefs = { aide: true, opp: 2, mode: 'solo', n1: 'Joueur 1', opts: copyOpts(OPT_DEF) };   // aide : variante solitaire seulement
+  function copyOpts(o) { var r = {}; Object.keys(OPT_DEF).forEach(function (k) { r[k] = o && o[k] !== undefined ? !!o[k] : OPT_DEF[k]; }); return r; }
 
   function $(id) { return document.getElementById(id); }
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -38,8 +41,12 @@
         prefs.aide = p.aide !== false; prefs.opp = Math.min(6, Math.max(1, p.opp || 2));
         if (p.mode === 'passe' || p.mode === 'duo') prefs.mode = 'online'; else if (p.mode === 'online' || p.mode === 'seul') prefs.mode = p.mode;
         if (p.n1) prefs.n1 = p.n1;
-        prefs.facile = p.facile === true;
-        prefs.difficile = p.difficile === true;
+        if (p.opts) prefs.opts = copyOpts(p.opts);
+        else {                 // anciens réglages (v8 / v9)
+          if (p.aide === false) prefs.opts.groupes = prefs.opts.points = prefs.opts.defausse = false;
+          if (p.difficile) prefs.opts.groupes = prefs.opts.points = prefs.opts.defausse = prefs.opts.joker = prefs.opts.sortie = false;
+          if (p.facile) prefs.opts.prises = true;
+        }
       }
     } catch (e) {}
   }
@@ -50,7 +57,7 @@
     var cls = ['card'];
     var wr = o.wr !== undefined ? o.wr : G.wild;   // valeur de joker de la manche (propre à chaque main en solitaire)
     if (c.rank === 0) cls.push('joker');
-    if (E.isWild(c, wr) && !G.difficile) cls.push('wild');   // mode difficile : le joker de la manche n'est pas signalé
+    if (E.isWild(c, wr) && showJoker()) cls.push('wild');
     if (o.sel) cls.push('sel');
     if (o.sug) cls.push('sug');
     if (o.lock) cls.push('lock');
@@ -72,7 +79,7 @@
   function sortHand(cards, wr) {
     if (wr === undefined) wr = G.wild;
     return cards.slice().sort(function (a, b) {
-      var wa = !G.difficile && E.isWild(a, wr) ? 1 : 0, wb = !G.difficile && E.isWild(b, wr) ? 1 : 0;   // difficile : aucun indice par le tri
+      var wa = showJoker() && E.isWild(a, wr) ? 1 : 0, wb = showJoker() && E.isWild(b, wr) ? 1 : 0;   // joker non affiché : aucun indice par le tri
       if (wa !== wb) return wa - wb;
       if (a.suit !== b.suit) return a.suit - b.suit;
       return a.rank - b.rank;
@@ -84,8 +91,16 @@
     return h + '</div>';
   }
 
-  // Aide aux groupes et à la défausse : coupée en mode difficile
-  function aideOn() { return prefs.aide && !(G && G.difficile); }
+  // Options d'aide de la partie (G.opts, fixées à la création). Anciennes parties : v8 « facile » / v9 « difficile » converties.
+  function curOpts() {
+    if (G && G.opts) return G.opts;
+    var d = copyOpts(OPT_DEF);
+    if (G && G.difficile) d.groupes = d.points = d.defausse = d.joker = d.sortie = false;
+    if (G && G.facile) d.prises = true;
+    return d;
+  }
+  function opt(k) { return !!curOpts()[k]; }
+  function showJoker() { return mode() === 'seul' || opt('joker'); }
 
   /* ---------- Qui regarde ? ---------- */
   function viewer() {
@@ -111,9 +126,9 @@
     return { txt: txt, alert: alert };
   }
 
-  // Mode facile : dernière carte prise dans la défausse par le joueur p (estompée si elle n'est plus dans sa main)
+  // Option « dernières cartes prises » : dernière carte prise dans la défausse par le joueur p (estompée si elle n'est plus dans sa main)
   function takenHTML(p) {
-    if (!G || !G.facile) return '';
+    if (!G || !opt('prises')) return '';
     var c = G.taken && G.taken[p];
     if (!c) return '<div class="taken">Prise : —</div>';
     var gone = !G.hands[p].some(function (x) { return x.id === c.id; });
@@ -142,7 +157,7 @@
   }
   function initOrder(p) {                 // point de départ = ce que le joueur voit déjà
     var hand = G.hands[p], list = [];
-    if (aideOn()) {
+    if (opt('groupes')) {
       var sol = E.solveHand(hand, G.wild);
       sol.groups.forEach(function (g) { g.cards.forEach(function (c) { list.push(c); }); });
       sortHand(sol.rest).forEach(function (c) { list.push(c); });
@@ -190,15 +205,11 @@
     }
     var choosing = isTurnOf(p) && G.phase === 'discard';
     var sug = null, selCard = null, layout;
-    if (aideOn()) {
-      if (choosing && selected != null) hand.forEach(function (c) { if (c.id === selected) selCard = c; });
-      var base = selCard ? hand.filter(function (c) { return c !== selCard; }) : hand;
-      var sol = E.solveHand(base, G.wild);
-      layout = { groups: sol.groups, rest: sortHand(sol.rest), penalty: sol.penalty };
-      if (choosing) sug = E.bestDiscard(hand, G.wild, G.noDiscard).card.id;
-    } else {
-      layout = { groups: [], rest: sortHand(hand), penalty: null };
-    }
+    if (choosing && selected != null) hand.forEach(function (c) { if (c.id === selected) selCard = c; });
+    var base = selCard ? hand.filter(function (c) { return c !== selCard; }) : hand;
+    var sol = E.solveHand(base, G.wild);
+    layout = opt('groupes') ? { groups: sol.groups, rest: sortHand(sol.rest), penalty: sol.penalty } : { groups: [], rest: sortHand(hand), penalty: sol.penalty };
+    if (choosing && opt('defausse')) sug = E.bestDiscard(hand, G.wild, G.noDiscard).card.id;
     function opts(c) {
       return { sel: arranging ? c.id === arrSel[p] : choosing && c.id === selected, sug: !arranging && c.id === sug,
                lock: choosing && c.id === G.noDiscard, pop: c.id === lastNewId };
@@ -215,23 +226,23 @@
         h += '</div>';
       });
       if (layout.rest.length) {
-        if (aideOn()) h += '<div class="group rest">';
+        if (opt('groupes')) h += '<div class="group rest">';
         layout.rest.forEach(function (c) { h += cardHTML(c, opts(c)); });
-        if (aideOn()) h += '</div>';
+        if (opt('groupes')) h += '</div>';
       }
-      if (selCard) h += '<div class="group out">' + cardHTML(selCard, opts(selCard)) + '</div>';
+      if (selCard && opt('groupes')) h += '<div class="group out">' + cardHTML(selCard, opts(selCard)) + '</div>';
     }
     handEl.innerHTML = h;
 
     if (arranging) {
       info = arrSel[p] != null ? 'Touche la carte avec laquelle l’échanger' : 'Touche deux cartes pour les échanger de place';
-      if (aideOn()) info += ' · isolées : <b>' + E.solveHand(hand, G.wild).penalty + ' pts</b>';
-    } else if (aideOn()) {
-      if (choosing) {
-        if (selCard) info = layout.penalty === 0 ? '<b>Tu peux sortir</b> en défaussant cette carte' : 'En défaussant cette carte, il te resterait <b>' + layout.penalty + ' pts</b>';
-        else info = 'Le point doré marque la défausse conseillée';
-      } else info = 'Cartes isolées : <b>' + layout.penalty + ' pts</b>';
-    }
+      if (opt('points')) info += ' · isolées : <b>' + E.solveHand(hand, G.wild).penalty + ' pts</b>';
+    } else if (choosing) {
+      if (selCard) {
+        if (layout.penalty === 0 && opt('sortie')) info = '<b>Tu peux sortir</b> en défaussant cette carte';
+        else if (opt('points')) info = 'En défaussant cette carte, il te resterait <b>' + layout.penalty + ' pts</b>';
+      } else if (opt('defausse')) info = 'Le point doré marque la défausse conseillée';
+    } else if (opt('points')) info = 'Cartes isolées : <b>' + layout.penalty + ' pts</b>';
     infoEl.innerHTML = info;
   }
 
@@ -245,7 +256,7 @@
     G.hands[p].forEach(function (c) { if (c.id === selected) card = c; });
     if (!card) { selected = null; btn.textContent = 'Choisis une carte à défausser'; return; }
     var rest = G.hands[p].filter(function (c) { return c.id !== selected; });
-    var out = !G.difficile && G.outBy < 0 && E.solveHand(rest, G.wild).penalty === 0;   // difficile : pas d'indice sur la sortie
+    var out = opt('sortie') && G.outBy < 0 && E.solveHand(rest, G.wild).penalty === 0;
     btn.textContent = out ? 'Sortir en défaussant ' + E.cardName(card) : 'Défausser ' + E.cardName(card);
     btn.disabled = false;
   }
@@ -254,9 +265,9 @@
   function renderSolo() {
     var v = viewer();
     $('roundTitle').textContent = 'Manche ' + (G.round + 1) + ' / 11';
-    $('roundSub').textContent = G.cards + ' cartes · ' + (mode() === 'solo' ? 'toi' : G.names[v]) + ' : ' + G.scores[v] + ' pts' + (G.difficile ? ' · difficile' : '');
-    $('wildBadge').hidden = !!G.difficile;
-    $('wildBadge').textContent = G.difficile ? '' : '♛ ' + E.rankLabel(G.wild) + ' = joker';
+    $('roundSub').textContent = G.cards + ' cartes · ' + (mode() === 'solo' ? 'toi' : G.names[v]) + ' : ' + G.scores[v] + ' pts';
+    $('wildBadge').hidden = !opt('joker');
+    $('wildBadge').textContent = opt('joker') ? '♛ ' + E.rankLabel(G.wild) + ' = joker' : '';
     var h = '';
     for (var p = 0; p < G.n; p++) {
       if (p === v) continue;
@@ -277,7 +288,7 @@
 
   function renderAll() {
     if (!G) return;
-    $('swAide2').parentNode.hidden = !!G.difficile;   // pas d'aide à régler en mode difficile
+    $('swAide2').parentNode.hidden = mode() !== 'seul';   // solo / en ligne : aides fixées à la création
     if (mode() === 'seul') renderSeul();
     else renderSolo();
   }
@@ -595,7 +606,7 @@
     }
     G = E.newGame(names, human);
     G.mode = prefs.mode;
-    G.difficile = !!prefs.difficile;
+    G.opts = copyOpts(prefs.opts);
     selected = null; arrOn = {}; arrSel = {};
     save(); showGame(); renderAll(); afterMove();
   }
@@ -607,8 +618,8 @@
     var onl = prefs.mode === 'online';
     $('optSolo').hidden = prefs.mode !== 'solo' && !onl;
     $('optNames').hidden = !onl;
-    $('optFacile').hidden = !onl; $('swFacile').classList.toggle('on', !!prefs.facile);
-    $('optDifficile').hidden = prefs.mode === 'seul'; $('swDifficile').classList.toggle('on', !!prefs.difficile);
+    $('optAides').hidden = prefs.mode === 'seul'; $('optAideSeul').hidden = prefs.mode !== 'seul';
+    document.querySelectorAll('[data-opt]').forEach(function (b) { b.classList.toggle('on', !!prefs.opts[b.dataset.opt]); });
     $('onlinePanel').hidden = !onl;
     document.querySelector('#segOpp [data-n="0"]').hidden = !onl;
     document.querySelector('#segOpp [data-n="6"]').hidden = onl;
@@ -734,14 +745,14 @@
     var nm = (prefs.n1 || '').trim() || 'Joueur 1', names = [nm, '…'], human = [true, true], i;
     for (i = 0; i < prefs.opp; i++) { names.push(BOT_NAMES[i]); human.push(false); }
     var g = E.newGame(names, human);
-    g.mode = 'online'; g.online = { uids: [EL.uid(), null], joined: false }; g.facile = !!prefs.facile; g.difficile = !!prefs.difficile;
+    g.mode = 'online'; g.online = { uids: [EL.uid(), null], joined: false }; g.opts = copyOpts(prefs.opts);
     EL.creer('cinqrois', g, nm + ' · en attente').then(function (r) {
       G = g; onlineStart(r.id, 0, r.version); onlineShow();
     }).catch(olError);
   }
   function restartOnline() {       // « Nouvelle partie » en ligne : même code, mêmes joueurs, scores remis à zéro
-    var o = G.online, fc = !!G.facile, df = !!G.difficile, ng = E.newGame(G.names.slice(), G.human.slice());
-    G = ng; G.mode = 'online'; G.online = o; G.facile = fc; G.difficile = df; G.order = []; selected = null; arrOn = {}; arrSel = {};
+    var o = G.online, op = copyOpts(curOpts()), ng = E.newGame(G.names.slice(), G.human.slice());
+    G = ng; G.mode = 'online'; G.online = o; G.opts = op; G.order = []; selected = null; arrOn = {}; arrSel = {};
     save(); onlineShow();
   }
   function seatFor(id, g) {
@@ -808,8 +819,9 @@
     $('n1').oninput = function () { prefs.n1 = this.value.slice(0, 14); savePrefs(); };
     $('swAide').onclick = function () { setAide(!prefs.aide); };
     $('swAide2').onclick = function () { setAide(!prefs.aide); };
-    $('swFacile').onclick = function () { prefs.facile = !prefs.facile; savePrefs(); refreshHome(); };
-    $('swDifficile').onclick = function () { prefs.difficile = !prefs.difficile; savePrefs(); refreshHome(); };
+    document.querySelectorAll('[data-opt]').forEach(function (b) {
+      b.onclick = function () { prefs.opts[b.dataset.opt] = !prefs.opts[b.dataset.opt]; savePrefs(); refreshHome(); };
+    });
     $('btnNew').onclick = function () {
       var s = loadSave();
       if (prefs.mode !== 'online' && s && !s.over && !confirm('Une partie est en cours. La remplacer par une nouvelle ?')) return;
